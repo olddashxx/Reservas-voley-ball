@@ -5,7 +5,7 @@
    - Responde peticiones HTTP desde Cache Storage con fallback a red en 'fetch'
    ============================================================================ */
 
-const CACHE_NAME = 'deporzone-pwa-cache-v4';
+const CACHE_NAME = 'deporzone-pwa-cache-v5';
 
 // Recursos esenciales locales para funcionar sin conexión (incluye index.html y mobile.html)
 const LOCAL_ASSETS = [

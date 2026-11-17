@@ -378,15 +378,27 @@ $(document).ready(function() {
   // FUNCIÓN 4: GESTIÓN DINÁMICA DE DISPONIBILIDAD, HORARIOS Y RESERVAS
   // ==========================================================
   
-  // 4.1 Configurar fecha mínima permitida (HOY) para evitar fechas pasadas
+  // 4.1 Configurar rango de fechas permitidas (HOY hasta máximo 30 días a futuro)
   const ahora = new Date();
   const yyyy = ahora.getFullYear();
   const mm = String(ahora.getMonth() + 1).padStart(2, '0');
   const dd = String(ahora.getDate()).padStart(2, '0');
   const fechaHoyFormato = `${yyyy}-${mm}-${dd}`;
 
-  // Establecer valor inicial y atributo min en HTML
-  $('#fecha-reserva').attr('min', fechaHoyFormato).val(fechaHoyFormato);
+  // Límite máximo de reserva a futuro: 30 días de anticipación (evita fechas lejanas como 2077)
+  const DIAS_ANTICIPACION_MAX = 30;
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() + DIAS_ANTICIPACION_MAX);
+  const yyyyMax = fechaLimite.getFullYear();
+  const mmMax = String(fechaLimite.getMonth() + 1).padStart(2, '0');
+  const ddMax = String(fechaLimite.getDate()).padStart(2, '0');
+  const fechaMaxFormato = `${yyyyMax}-${mmMax}-${ddMax}`;
+
+  // Establecer valor inicial y atributos min/max en los inputs de fecha (HTML5 Datepicker)
+  $('#fecha-reserva')
+    .attr('min', fechaHoyFormato)
+    .attr('max', fechaMaxFormato)
+    .val(fechaHoyFormato);
 
   // Variables de control de horas y precios
   let precioPorHora = 80;
@@ -686,6 +698,12 @@ $(document).ready(function() {
       return false;
     }
 
+    if (valorFecha > fechaMaxFormato) {
+      $('#err-date').text(`⚠️ Solo se permite reservar con un máximo de ${DIAS_ANTICIPACION_MAX} días de anticipación (fecha límite: ${fechaMaxFormato}).`).slideDown('fast');
+      $('#fecha-reserva').addClass('input-invalid');
+      return false;
+    }
+
     $('#fecha-reserva').addClass('input-valid');
     return true;
   }
@@ -833,7 +851,7 @@ $(document).ready(function() {
   // Funciones de validación silenciosa (comprueba estado sin mostrar errores antes de tiempo)
   function validarCampoFechaSilencioso() {
     let f = $('#fecha-reserva').val();
-    return f && (f >= fechaHoyFormato);
+    return f && (f >= fechaHoyFormato) && (f <= fechaMaxFormato);
   }
 
   function validarCampoNombreSilencioso() {
