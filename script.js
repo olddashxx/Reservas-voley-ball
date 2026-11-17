@@ -680,28 +680,39 @@ $(document).ready(function() {
   // FUNCIONES DE VALIDACIÓN INDIVIDUAL (PARA BLUR / INPUT)
   // ==========================================================
 
-  // Validación de Fecha (No vacía y no en el pasado)
-  function validarCampoFecha() {
+  // Validación y Corrección Automática de Fecha (Evita fechas lejanas como 2035 o 2077)
+  function validarCampoFecha(autoCorregir = true) {
     let valorFecha = $('#fecha-reserva').val();
     $('#fecha-reserva').removeClass('input-invalid input-valid');
     $('#err-date').hide().text('');
 
     if (!valorFecha) {
-      $('#err-date').text('⚠️ Debes seleccionar una fecha para la reserva.').slideDown('fast');
+      $('#err-date').text('⚠️ Debes seleccionar una fecha para la reserva.').stop(true, true).slideDown('fast');
       $('#fecha-reserva').addClass('input-invalid');
       return false;
     }
 
     if (valorFecha < fechaHoyFormato) {
-      $('#err-date').text('⚠️ No puedes reservar en una fecha pasada. Elige hoy o un día posterior.').slideDown('fast');
-      $('#fecha-reserva').addClass('input-invalid');
-      return false;
-    }
-
-    if (valorFecha > fechaMaxFormato) {
-      $('#err-date').text(`⚠️ Solo se permite reservar con un máximo de ${DIAS_ANTICIPACION_MAX} días de anticipación (fecha límite: ${fechaMaxFormato}).`).slideDown('fast');
-      $('#fecha-reserva').addClass('input-invalid');
-      return false;
+      if (autoCorregir) {
+        $('#fecha-reserva').val(fechaHoyFormato);
+        $('#err-date').text('⚠️ No puedes reservar en una fecha pasada. Se ajustó automáticamente a hoy.').stop(true, true).slideDown('fast');
+        mostrarToastAlert('⚠️ Fecha Pasada No Permitida', 'Se ajustó automáticamente a la fecha de hoy.', true);
+      } else {
+        $('#err-date').text('⚠️ No puedes reservar en una fecha pasada.').stop(true, true).slideDown('fast');
+        $('#fecha-reserva').addClass('input-invalid');
+        return false;
+      }
+    } else if (valorFecha > fechaMaxFormato) {
+      if (autoCorregir) {
+        // Corrección física: se reemplaza el valor 2035/2077 por la fecha máxima permitida
+        $('#fecha-reserva').val(fechaMaxFormato);
+        $('#err-date').text(`⚠️ Fecha fuera de rango. No se permiten reservas tan futuras; se ajustó al límite máximo (${fechaMaxFormato}).`).stop(true, true).slideDown('fast');
+        mostrarToastAlert('⚠️ Fecha Fuera de Rango', `Solo se permite reservar hasta el ${fechaMaxFormato}.`, true);
+      } else {
+        $('#err-date').text(`⚠️ Solo se permite reservar con un máximo de ${DIAS_ANTICIPACION_MAX} días de anticipación.`).stop(true, true).slideDown('fast');
+        $('#fecha-reserva').addClass('input-invalid');
+        return false;
+      }
     }
 
     $('#fecha-reserva').addClass('input-valid');
@@ -783,9 +794,9 @@ $(document).ready(function() {
   // ==========================================================
   // EVENTOS BLUR / INPUT: VALIDAR AL SALIR DEL CAMPO O TOCARLO
   // ==========================================================
-  // Al salir del campo (blur) o cambiar fecha, se valida y actualiza la disponibilidad de horarios
-  $('#fecha-reserva').on('blur change', function() {
-    validarCampoFecha();
+  // Al interactuar (input), cambiar fecha (change) o salir (blur), se valida, corrige y actualiza
+  $('#fecha-reserva').on('input change blur', function() {
+    validarCampoFecha(true);
     actualizarDisponibilidadHorarios();
     validarHorarios();
     calcularTotalReserva();
