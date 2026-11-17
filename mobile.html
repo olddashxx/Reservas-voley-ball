@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <!-- === [FUNCIONALIDAD PWA 1]: Viewport Móvil Compacto (0 Scroll de Página) === -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e392a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="DeporZone Wally Park App Móvil — 6 canchas de wallybol, reservas en vivo y PWA Offline-First.">
+  <title>DeporZone Wally Park | Versión Móvil</title>
+
+  <!-- Redirección Automática Inmediata: Computadoras / Escritorio -> index.html -->
+  <script>
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var vistaParam = params.get('vista');
+        if (vistaParam === 'mobile') {
+          sessionStorage.setItem('deporzone_vista', 'mobile');
+          return;
+        }
+        if (sessionStorage.getItem('deporzone_vista') === 'mobile') {
+          return;
+        }
+        var ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
+        var esMovilTabletUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet|silk|kindle/i.test(ua);
+        var esIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var tieneTouch = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        var ancho = Math.min(window.innerWidth || 9999, (window.screen && window.screen.width) || 9999);
+        var esMovilTablet = esMovilTabletUA || esIPadOS || (tieneTouch && ancho <= 1024);
+
+        if (!esMovilTablet) {
+          window.location.replace('index.html' + window.location.search + window.location.hash);
+        }
+      } catch (e) {
+        console.error('Error en redirección automática:', e);
+      }
+    })();
+  </script>
+
+  <!-- === [FUNCIONALIDAD PWA 2]: Manifiesto Web App & Estilos Unificados === -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Font Awesome para iconos temáticos de deportes e interfaz -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body class="theme-light vista-mobile">
+
+  <!-- === [CONTENEDOR APP MÓVIL 100dvh]: Marco Smartphone en PC y 0 Scroll en Celular === -->
+  <div class="pwa-container">
+
+    <!-- Barra Superior de Estado Red y Enlace a Vista PC -->
+    <div class="phone-status-bar">
+      <span>DeporZone • Móvil</span>
+      <span id="estadoRed" class="estado-red-badge" style="padding: 2px 8px; font-size: 10px;">🟢 En Línea</span>
+      <a href="index.html?vista=pc" style="color: #68d391; text-decoration: none; font-weight: 600;">🖥️ Vista PC</a>
+    </div>
+
+    <!-- === [1. ENCABEZADO COMPACTO, MODO OSCURO Y MENÚ HAMBURGUESA] === -->
+    <header id="main-header" class="pwa-header">
+      <div class="logo-box" style="gap: 8px; min-width: 0;">
+        <span class="logo-icon" style="font-size: 1.35rem;"><i class="fa-solid fa-volleyball"></i></span>
+        <div style="min-width: 0;">
+          <h1 class="brand-title" style="font-size: 1rem; line-height: 1.1;">Depor<span>Zone</span></h1>
+          <small style="color: #68d391; font-size: 0.68rem; font-weight: 600; display: block;">Wally Park • 6 Canchas</small>
+        </div>
+        <div class="status-indicator-badge" style="margin-left: 2px; padding: 2px 7px; font-size: 0.65rem;">
+          <span class="status-dot"></span>
+          <span class="status-text">Abierto</span>
+        </div>
+      </div>
+
+      <!-- Hidratación SSR aplicada a cada botón + Tema + Menú Hamburguesa -->
+      <div id="contenedorMenu" class="header-actions" data-hidratado="false" style="gap: 6px;">
+        <button id="theme-toggle-btn" class="action-btn theme-btn btn-hidratable" data-hidratado="false" type="button"
+          aria-label="Cambiar tema claro/oscuro" title="Cambiar tema claro/oscuro"
+          style="padding: 6px 9px; min-width: 34px; min-height: 34px;">
+          <i class="fa-solid fa-moon icon-moon"></i>
+          <i class="fa-solid fa-sun icon-sun" style="display: none;"></i>
+        </button>
+        <button id="hamburger-btn" class="action-btn hamburger-btn btn-hidratable" data-hidratado="false" type="button"
+          aria-label="Abrir menú de navegación" style="width: 34px; height: 34px; padding: 7px;">
+          <span class="bar bar-1"></span>
+          <span class="bar bar-2"></span>
+          <span class="bar bar-3"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Menú Hamburguesa Desplegable como capa flotante (.slideToggle) -->
+    <nav id="navbar" class="nav-menu">
+      <ul class="nav-links">
+        <li><a href="#tab-inicio" class="nav-link link-tab-movil active" data-tab="tab-inicio"><i class="fa-solid fa-house"></i> Inicio y Reglamento</a></li>
+        <li><a href="#tab-canchas" class="nav-link link-tab-movil" data-tab="tab-canchas"><i class="fa-solid fa-filter"></i> Nuestras 6 Canchas</a></li>
+        <li><a href="#tab-reservar" class="nav-link link-tab-movil" data-tab="tab-reservar"><i class="fa-solid fa-calendar-check"></i> Reservar Turno</a></li>
+        <li><a href="#tab-bitacora" class="nav-link link-tab-movil" data-tab="tab-bitacora"><i class="fa-solid fa-clock-rotate-left"></i> Bitácora Timestamp</a></li>
+        <li><a href="#tab-info" class="nav-link link-tab-movil" data-tab="tab-info"><i class="fa-solid fa-share-nodes"></i> Redes y Ubicación</a></li>
+        <li><a href="index.html?vista=pc" class="nav-link"><i class="fa-solid fa-desktop"></i> Vista Computadora</a></li>
+      </ul>
+    </nav>
+
+    <!-- === [CONTENIDO PRINCIPAL POR PESTAÑAS CON 0 SCROLL EN DOCUMENTO] === -->
+    <main class="pwa-main-content">
+
+      <!-- PESTAÑA 1: INICIO Y REGLAMENTO -->
+      <section id="tab-inicio" class="mobile-tab-panel active">
+        <div class="mobile-subnav" role="tablist" aria-label="Secciones de Inicio">
+          <button type="button" class="btn-subtab btn-hidratable active" data-hidratado="false" data-subtab="sub-bienvenida">🏟️ Complejo</button>
+          <button type="button" class="btn-subtab btn-hidratable" data-hidratado="false" data-subtab="sub-reglamento">📖 Reglamento</button>
+        </div>
+
+        <!-- Subpanel 1A: Bienvenida + Estadísticas + Tarjeta Destacada -->
+        <div id="sub-bienvenida" class="mobile-subpanel active">
+          <div class="hero-compact-banner">
+            <span class="hero-badge"><i class="fa-solid fa-location-dot"></i> 6 Canchas Bajo un Mismo Techo</span>
+            <h2>DeporZone Wally Park</h2>
+            <p>Megacomplejo de wallybol con madera flotante, sintético premium y cemento alisado, vestuarios, graderías y cafetería deportiva.</p>
+            <div class="compact-cta-row">
+              <button type="button" class="btn btn-primary btn-go-tab btn-hidratable" data-hidratado="false" data-tab="tab-canchas">
+                <i class="fa-solid fa-layer-group"></i> Ver 6 Canchas
+              </button>
+              <button type="button" class="btn btn-secondary btn-go-tab btn-hidratable" data-hidratado="false" data-tab="tab-reservar">
+                <i class="fa-solid fa-clock"></i> Reservar Turno
+              </button>
+            </div>
+          </div>
+
+          <div class="compact-stats-row">
+            <div class="compact-stat-pill">
+              <strong>6 Canchas</strong>
+              <span>3 Superficies</span>
+            </div>
+            <div class="compact-stat-pill">
+              <strong>50–80 Bs/h</strong>
+              <span>Tarifa Flexible</span>
+            </div>
+            <div class="compact-stat-pill">
+              <strong>14:00–00:00</strong>
+              <span>Lun a Dom</span>
+            </div>
+          </div>
+
+          <article class="compact-card flex-fill" style="justify-content: center;">
+            <div class="compact-card-row">
+              <img
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSynNVw4Pknx8IKiuVaS049pU2kDSclZXIe0WyWRkcCuNel-coOWjTVBzOW&s=10"
+                alt="Complejo DeporZone Wally Park" class="compact-card-thumb" loading="lazy">
+              <div class="compact-card-body">
+                <h4>Complejo Centralizado</h4>
+                <p>Predio deportivo en Av. América y Melchor Pérez con lounge privado, churrasquera, balcón y control electrónico de turnos.</p>
+                <div class="compact-badges">
+                  <span class="compact-badge">Vestuarios VIP</span>
+                  <span class="compact-badge">Graderías</span>
+                  <span class="compact-badge">Cafetería</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Subpanel 1B: Reglamento Interno Compacto -->
+        <div id="sub-reglamento" class="mobile-subpanel">
+          <div class="compact-rules-stack">
+            <article class="rule-card compact-card compact-card-row flex-fill">
+              <div class="compact-rule-icon"><i class="fa-solid fa-shoe-prints"></i></div>
+              <div class="compact-card-body">
+                <h5>Uso de Zapatillas Limpias</h5>
+                <p>Ingreso obligatorio con zapatillas deportivas de suela limpia no abrasiva para proteger el tabloncillo y pisos de poliuretano.</p>
+                <div class="compact-badges">
+                  <span class="compact-badge">Obligatorio</span>
+                  <span class="compact-badge">Suela No Abrasiva</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rule-card compact-card compact-card-row flex-fill">
+              <div class="compact-rule-icon"><i class="fa-solid fa-hand-fist"></i></div>
+              <div class="compact-card-body">
+                <h5>Paredes y Altura de Red</h5>
+                <p>Uso de paredes reglamentarias en campo propio. Solicita en recepción ajuste para damas (2.24m) o varones (2.43m).</p>
+                <div class="compact-badges">
+                  <span class="compact-badge">Damas 2.24m</span>
+                  <span class="compact-badge">Varones 2.43m</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rule-card compact-card compact-card-row flex-fill">
+              <div class="compact-rule-icon"><i class="fa-solid fa-stopwatch"></i></div>
+              <div class="compact-card-body">
+                <h5>Puntualidad en Turno</h5>
+                <p>Los turnos inician en punto. Respeta los 5 minutos finales para despejar la cancha y dar paso al siguiente equipo.</p>
+                <div class="compact-badges">
+                  <span class="compact-badge">Inicio en Punto</span>
+                  <span class="compact-badge">Despeje 5m</span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 2: CATÁLOGO DE 6 CANCHAS CON BÚSQUEDA + FILTROS MULTINIVEL (0 SCROLL) -->
+      <section id="tab-canchas" class="mobile-tab-panel">
+        <input type="text" id="searchCancha" class="search-cancha-input" placeholder="Buscar cancha, madera, VIP, gradería...">
+
+        <div class="filter-buttons-wrapper compact-filter-row" id="type-filter-buttons">
+          <button type="button" class="filter-btn type-btn btn-hidratable active" data-hidratado="false" data-type="all">Todas</button>
+          <button type="button" class="filter-btn type-btn btn-hidratable" data-hidratado="false" data-type="madera">Madera</button>
+          <button type="button" class="filter-btn type-btn btn-hidratable" data-hidratado="false" data-type="sintetico">Sintético</button>
+          <button type="button" class="filter-btn type-btn btn-hidratable" data-hidratado="false" data-type="cemento-pulido">Cemento</button>
+        </div>
+
+        <div class="filter-buttons-wrapper compact-filter-row" id="subtype-filter-buttons">
+          <button type="button" class="filter-btn subtype-btn btn-hidratable active" data-hidratado="false" data-subtype="all">Todos</button>
+          <button type="button" class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="vip">VIP</button>
+          <button type="button" class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="oficial">Oficial</button>
+          <button type="button" class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="graderia">Gradería</button>
+          <button type="button" class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="economica">Económica</button>
+        </div>
+
+        <!-- Cuadrícula compacta 2x3 con imágenes con loading="lazy" -->
+        <div class="compact-grid-2 compact-courts-grid" id="courts-container">
+          <article class="court-card compact-court-card" data-type="madera" data-subtype="vip oficial">
+            <img
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSynNVw4Pknx8IKiuVaS049pU2kDSclZXIe0WyWRkcCuNel-coOWjTVBzOW&s=10"
+              alt="Cancha 1 Illimani VIP" class="court-img compact-card-img" loading="lazy">
+            <div class="court-info compact-court-info">
+              <h4>C1: Illimani VIP</h4>
+              <p class="court-desc">Parquet flotante climatizado con LED y acústica.</p>
+              <div class="compact-badges">
+                <span class="compact-badge">Madera</span>
+                <span class="compact-badge">VIP Clima</span>
+              </div>
+              <div class="court-price-row">
+                <span class="price-val">80 Bs/h</span>
+                <button type="button" class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-1"
+                  data-court-name="Cancha 1: Illimani VIP (Madera)" data-court-price="80">Elegir</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="court-card compact-court-card" data-type="madera" data-subtype="oficial graderia">
+            <img
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSY-D-_HsZdhlada8GdwfrBZOoO-czCgP3cNS3w-rJMGUQNea6ttR6maow&s=10"
+              alt="Cancha 2 Tunari Master" class="court-img compact-card-img" loading="lazy">
+            <div class="court-info compact-court-info">
+              <h4>C2: Tunari Master</h4>
+              <p class="court-desc">Tabloncillo oficial 9.5x4.5m con gradería.</p>
+              <div class="compact-badges">
+                <span class="compact-badge">Oficial</span>
+                <span class="compact-badge">Gradería</span>
+              </div>
+              <div class="court-price-row">
+                <span class="price-val">70 Bs/h</span>
+                <button type="button" class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-2"
+                  data-court-name="Cancha 2: Tunari Master (Reglamentaria)" data-court-price="70">Elegir</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="court-card compact-court-card" data-type="sintetico" data-subtype="vip">
+            <img
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR8dFA2av4-Q3eQb_bnJjGCfuRhlub9YlY28jzLx2KG3zCNkglGAOrppY5f&s=10"
+              alt="Cancha 3 Urkupiña Club" class="court-img compact-card-img" loading="lazy">
+            <div class="court-info compact-court-info">
+              <h4>C3: Urkupiña Club</h4>
+              <p class="court-desc">Goma antideslizante 8mm con lounge privado.</p>
+              <div class="compact-badges">
+                <span class="compact-badge">Sintético</span>
+                <span class="compact-badge">Lounge VIP</span>
+              </div>
+              <div class="court-price-row">
+                <span class="price-val">75 Bs/h</span>
+                <button type="button" class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-3"
+                  data-court-name="Cancha 3: Urkupiña Club (Sintético)" data-court-price="75">Elegir</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="court-card compact-court-card" data-type="sintetico" data-subtype="oficial">
+            <img
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSK_9xtRNoisAcIvirAhiOFM_02TrD8qeoyGxFwsMMCPq7J1_pVNmPYeK0&s=10"
+              alt="Cancha 4 La Cancha Pro" class="court-img compact-card-img" loading="lazy">
+            <div class="court-info compact-court-info">
+              <h4>C4: La Cancha Pro</h4>
+              <p class="court-desc">Resina de poliuretano continuo para torneo.</p>
+              <div class="compact-badges">
+                <span class="compact-badge">Poliuretano</span>
+                <span class="compact-badge">Torneo</span>
+              </div>
+              <div class="court-price-row">
+                <span class="price-val">65 Bs/h</span>
+                <button type="button" class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-4"
+                  data-court-name="Cancha 4: La Cancha Pro (Poliuretano)" data-court-price="65">Elegir</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="court-card compact-court-card" data-type="cemento-pulido" data-subtype="economica">
+            <img
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtam2NeQPRvJ76i_DmCtpmcY22bBLRPGZEMH-uvaRtZLDBxHAAcdyk7Qmg&s=10"
+              alt="Cancha 5 La Tradicional" class="court-img compact-card-img" loading="lazy">
+            <div class="court-info compact-court-info">
+              <h4>C5: La Tradicional</h4>
+              <p class="court-desc">Cemento alisado de rebote rápido y accesible.</p>
+              <div class="compact-badges">
+                <span class="compact-badge">Cemento</span>
+                <span class="compact-badge">Económica</span>
+              </div>
+              <div class="court-price-row">
+                <span class="price-val">50 Bs/h</span>
+                <button type="button" class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-5"
+                  data-court-name="Cancha 5: La Tradicional (Cemento)" data-court-price="50">Elegir</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="court-card compact-court-card" data-type="cemento-pulido" data-subtype="graderia economica">
+            <img src="https://pavipor.com/wp-content/uploads/2019/12/pavipor-pista-voleibol-17.jpg"
+              alt="Cancha 6 Tercer Tiempo" class="court-img compact-card-img" loading="lazy">
+            <div class="court-info compact-court-info">
+              <h4>C6: Tercer Tiempo</h4>
+              <p class="court-desc">Cemento pulido con balcón, gradería y mesas.</p>
+              <div class="compact-badges">
+                <span class="compact-badge">Gradería</span>
+                <span class="compact-badge">Social</span>
+              </div>
+              <div class="court-price-row">
+                <span class="price-val">55 Bs/h</span>
+                <button type="button" class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-6"
+                  data-court-name="Cancha 6: Tercer Tiempo (Cemento)" data-court-price="55">Elegir</button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 3: RESERVA DE CANCHAS + COLA BLINDADA + HISTORIAL ANTI-XSS -->
+      <section id="tab-reservar" class="mobile-tab-panel">
+        <div class="mobile-subnav" role="tablist" aria-label="Pasos de Reserva">
+          <button type="button" class="btn-subtab btn-hidratable active" data-hidratado="false" data-subtab="sub-horarios">🕒 1. Horario</button>
+          <button type="button" class="btn-subtab btn-hidratable" data-hidratado="false" data-subtab="sub-titular">👤 2. Titular</button>
+          <button type="button" class="btn-subtab btn-hidratable" data-hidratado="false" data-subtab="sub-cola">⏳ 3. Cola</button>
+        </div>
+
+        <!-- 3. Botón condicional de cancelación de reserva activa (Solo visible si hay reservas activas) -->
+        <div id="seccionCancelarReserva" class="active-reservations-bar compact-res-bar" style="display: none;">
+          <div class="active-res-info">
+            <i class="fa-solid fa-circle-check" style="color: #27ae60;"></i>
+            <span><strong id="cant-reservas-activas">0</strong> reserva(s) activa(s)</span>
+          </div>
+          <button type="button" id="btn-cancelar-reserva-activa" class="btn-cancel-reservation">
+            <i class="fa-solid fa-calendar-xmark"></i> Cancelar Reserva
+          </button>
+        </div>
+
+        <!-- Subpanel 3A: Fecha, Cancha, Turnos Rápidos y Rango Continuo -->
+        <div id="sub-horarios" class="mobile-subpanel active">
+          <div class="compact-card flex-fill" style="justify-content: space-between; gap: 6px;">
+            <div class="compact-form-2">
+              <div class="form-row-single" style="margin-bottom: 0;">
+                <label for="fecha-reserva">Fecha:</label>
+                <input type="date" id="fecha-reserva" name="fecha-reserva">
+                <span class="field-error" id="err-date" style="display: none;"></span>
+              </div>
+              <div class="form-row-single" style="margin-bottom: 0;">
+                <label for="select-cancha-reserva">Cancha:</label>
+                <select id="select-cancha-reserva">
+                  <option value="wally-1" data-precio="80" selected>C1: Illimani VIP (80 Bs/h)</option>
+                  <option value="wally-2" data-precio="70">C2: Tunari Master (70 Bs/h)</option>
+                  <option value="wally-3" data-precio="75">C3: Urkupiña Club (75 Bs/h)</option>
+                  <option value="wally-4" data-precio="65">C4: La Cancha Pro (65 Bs/h)</option>
+                  <option value="wally-5" data-precio="50">C5: La Tradicional (50 Bs/h)</option>
+                  <option value="wally-6" data-precio="55">C6: Tercer Tiempo (55 Bs/h)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="schedule-block-title" style="margin-top: 0; margin-bottom: 4px;">Turnos en bloques de 1 hora:</label>
+              <div class="time-slots-grid compact-slots-grid" id="turnos-grid">
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="14" data-fin="15">14:00 - 15:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="15" data-fin="16">15:00 - 16:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="16" data-fin="17">16:00 - 17:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="17" data-fin="18">17:00 - 18:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="18" data-fin="19">18:00 - 19:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="19" data-fin="20">19:00 - 20:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="20" data-fin="21">20:00 - 21:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="21" data-fin="22">21:00 - 22:00</button>
+                <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="22" data-fin="23">22:00 - 23:00</button>
+              </div>
+            </div>
+
+            <div class="custom-range-box compact-range-box">
+              <h5>Horario continuo personalizado:</h5>
+              <div class="range-inputs-group">
+                <div class="input-item">
+                  <label for="select-inicio">Inicio:</label>
+                  <select id="select-inicio">
+                    <option value="14">14:00</option>
+                    <option value="15">15:00</option>
+                    <option value="16">16:00</option>
+                    <option value="17">17:00</option>
+                    <option value="18">18:00</option>
+                    <option value="19" selected>19:00</option>
+                    <option value="20">20:00</option>
+                    <option value="21">21:00</option>
+                    <option value="22">22:00</option>
+                  </select>
+                </div>
+                <div class="input-item">
+                  <label for="select-fin">Fin:</label>
+                  <select id="select-fin">
+                    <option value="15">15:00</option>
+                    <option value="16">16:00</option>
+                    <option value="17">17:00</option>
+                    <option value="18">18:00</option>
+                    <option value="19">19:00</option>
+                    <option value="20" selected>20:00</option>
+                    <option value="21">21:00</option>
+                    <option value="22">22:00</option>
+                    <option value="23">23:00</option>
+                  </select>
+                </div>
+              </div>
+              <span class="field-error" id="err-hours" style="display: none; margin-top: 4px;"></span>
+            </div>
+
+            <button type="button" id="btn-ir-titular" class="btn btn-primary btn-hidratable" data-hidratado="false" style="width: 100%; padding: 8px;">
+              Continuar a Datos del Titular <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Subpanel 3B: Formulario Titular con Validación blur/input + Resumen en Vivo -->
+        <div id="sub-titular" class="mobile-subpanel">
+          <div class="compact-card flex-fill" style="justify-content: space-between;">
+            <form id="reservation-form" action="#" method="POST" style="display: flex; flex-direction: column; flex: 1; justify-content: space-between; min-height: 0;">
+              <div class="compact-form-2">
+                <div class="form-group">
+                  <label for="client-name">Nombre Completo:</label>
+                  <input type="text" id="client-name" name="client-name" placeholder="Gabriel Ramos">
+                  <span class="field-error" id="err-name" style="display: none;"></span>
+                </div>
+                <div class="form-group">
+                  <label for="client-phone">Celular / WhatsApp:</label>
+                  <input type="tel" id="client-phone" name="client-phone" placeholder="78854844">
+                  <span class="field-error" id="err-phone" style="display: none;"></span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="client-email">Correo Electrónico:</label>
+                <input type="email" id="client-email" name="client-email" placeholder="ejemplo@correo.com">
+                <span class="field-error" id="err-email" style="display: none;"></span>
+              </div>
+
+              <div class="compact-form-2">
+                <div class="form-group">
+                  <label for="wally-category">Modalidad:</label>
+                  <select id="wally-category" name="wally-category">
+                    <option value="varones">Terna Varones (3 vs 3)</option>
+                    <option value="damas">Terna Damas (3 vs 3)</option>
+                    <option value="mixto">Terna Mixto (3 vs 3)</option>
+                    <option value="cuartas">Cuartas (4 vs 4)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="payment-method">Forma de Pago:</label>
+                  <select id="payment-method" name="payment-method">
+                    <option value="qr">Pago QR Simple</option>
+                    <option value="tigo-money">Tigo Money</option>
+                    <option value="efectivo">Efectivo en Caja</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Adicionales:</label>
+                <div class="checkboxes-wrapper compact-checks">
+                  <label class="checkbox-label"><input type="checkbox" id="add-ball" name="add-ball" value="10"> Balón (+10 Bs)</label>
+                  <label class="checkbox-label"><input type="checkbox" id="add-vests" name="add-vests" value="15"> Chalecos (+15 Bs)</label>
+                  <label class="checkbox-label"><input type="checkbox" id="add-water" name="add-water" value="20"> 6 Aguas (+20 Bs)</label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <textarea id="client-notes" name="client-notes" rows="1" placeholder="Notas o altura de red (2.24m / 2.43m)..."></textarea>
+              </div>
+
+              <div class="reservation-summary-panel compact-summary">
+                <div class="summary-line"><span>Cancha:</span><strong id="summary-court">C1: Illimani VIP</strong></div>
+                <div class="summary-line"><span>Horario (<span id="summary-hours">0 Horas</span>):</span><strong id="summary-time">No asignado</strong></div>
+                <div class="summary-line"><span>Garantía (Reembolsable):</span><strong id="summary-guarantee">50 BOB</strong></div>
+                <div class="summary-line total-highlight">
+                  <span>Total a Pagar:</span>
+                  <strong id="summary-total" class="total-amount">0 BOB</strong>
+                </div>
+              </div>
+
+              <div id="booking-alert-error" class="alert-box error" style="display: none;"></div>
+              <div id="booking-alert-success" class="alert-box success" style="display: none;"></div>
+
+              <button type="submit" id="btn-submit-booking" class="btn btn-submit btn-disabled btn-hidratable" data-hidratado="false" disabled>
+                <i class="fa-solid fa-circle-check"></i> Confirmar y Reservar en Wally Park
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Subpanel 3C: Cola Blindada de Retos + Historial Sanitizado Anti-XSS -->
+        <div id="sub-cola" class="mobile-subpanel">
+          <div class="cola-karaoke" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+            <h4 style="font-size: 0.9rem; margin-bottom: 4px;"><i class="fa-solid fa-list-ol"></i> Cola de Retos y Espera</h4>
+            <div class="fila-inline-form">
+              <input type="text" id="inputCancion" placeholder="Equipo o reto (ej: Halcones 21:00)...">
+              <button type="button" id="btnPedir" class="btn-tactil btn-hidratable" data-hidratado="false"><i class="fa-solid fa-plus"></i> Agregar</button>
+            </div>
+            <span class="field-error" id="errInputCancion" style="display: none; margin-bottom: 4px;"></span>
+            <div id="listaCanciones" style="flex: 1; min-height: 0; overflow-y: auto;"></div>
+          </div>
+
+          <div class="booking-history-card" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+            <h4 style="font-size: 0.9rem; margin-bottom: 4px;"><i class="fa-solid fa-shield-halved"></i> Turnos Confirmados (Anti-XSS)</h4>
+            <ul id="listaReservas" class="lista-segura" style="flex: 1; min-height: 0; overflow-y: auto;"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 4: BITÁCORA EN TIEMPO REAL CON TIMESTAMP (SCROLL SOLO EN EL LOG) -->
+      <section id="tab-bitacora" class="mobile-tab-panel">
+        <div class="log-controls-bar" style="flex-shrink: 0;">
+          <button type="button" id="toggle-log-btn" class="accordion-toggle-btn btn-hidratable" data-hidratado="false">
+            <i class="fa-solid fa-eye-slash"></i> <span>Alternar (.fadeToggle)</span>
+          </button>
+          <button type="button" id="clear-log-btn" class="accordion-toggle-btn btn-clear-log btn-hidratable" data-hidratado="false">
+            <i class="fa-solid fa-trash-can"></i> Limpiar
+          </button>
+        </div>
+
+        <div id="log-collapsible-box" class="filter-controls-card compact-log-card">
+          <div class="log-stats-row compact-stats-row">
+            <div class="stat-badge compact-stat-pill">
+              <span>Eventos</span>
+              <strong id="stat-total-events">0</strong>
+            </div>
+            <div class="stat-badge compact-stat-pill">
+              <span>Filtros</span>
+              <strong id="stat-filter-events">0</strong>
+            </div>
+            <div class="stat-badge compact-stat-pill">
+              <span>Reservas</span>
+              <strong id="stat-order-events">0</strong>
+            </div>
+          </div>
+
+          <div id="activity-log-list" class="activity-log-list compact-log-list">
+            <!-- Eventos con Timestamp generados de forma segura -->
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 5: REDES SOCIALES Y UBICACIÓN DEL COMPLEJO -->
+      <section id="tab-info" class="mobile-tab-panel">
+        <div class="mobile-subnav" role="tablist" aria-label="Información del Complejo">
+          <button type="button" class="btn-subtab btn-hidratable active" data-hidratado="false" data-subtab="sub-redes">🌐 Redes</button>
+          <button type="button" class="btn-subtab btn-hidratable" data-hidratado="false" data-subtab="sub-ubicacion">📍 Ubicación</button>
+        </div>
+
+        <!-- Subpanel 5A: Redes Sociales Oficiales 2x2 -->
+        <div id="sub-redes" class="mobile-subpanel active">
+          <button type="button" id="toggle-social-btn" class="accordion-toggle-btn btn-hidratable" data-hidratado="false" style="margin-top: 0; width: 100%; justify-content: center;">
+            <i class="fa-solid fa-bullhorn"></i> <span>Mostrar / Ocultar Redes (.fadeToggle)</span>
+          </button>
+
+          <div id="social-collapsible-box" class="social-grid compact-grid-2" style="flex: 1; min-height: 0;">
+            <a href="https://facebook.com" target="_blank" rel="noopener" class="social-card" data-network="Facebook Oficial (DeporZone Wally Park)">
+              <i class="fa-brands fa-facebook-f"></i>
+              <h5>Facebook</h5>
+              <span>/DeporZoneWallyPark</span>
+              <small class="social-action">Torneos y Fixture</small>
+            </a>
+            <a href="https://instagram.com" target="_blank" rel="noopener" class="social-card" data-network="Instagram (@deporzone.wally)">
+              <i class="fa-brands fa-instagram"></i>
+              <h5>Instagram</h5>
+              <span>@deporzone.wally</span>
+              <small class="social-action">Fotos y Campeones</small>
+            </a>
+            <a href="https://tiktok.com" target="_blank" rel="noopener" class="social-card" data-network="TikTok Oficial (@deporzone.bo)">
+              <i class="fa-brands fa-tiktok"></i>
+              <h5>TikTok</h5>
+              <span>@deporzone.bo</span>
+              <small class="social-action">Mejores Jugadas</small>
+            </a>
+            <a href="https://wa.me/59178854844" target="_blank" rel="noopener" class="social-card" data-network="WhatsApp Reservas (+591 78854844)">
+              <i class="fa-brands fa-whatsapp"></i>
+              <h5>WhatsApp Directo</h5>
+              <span>(+591) 78854844</span>
+              <small class="social-action">Atención Inmediata</small>
+            </a>
+          </div>
+        </div>
+
+        <!-- Subpanel 5B: Ubicación, Horarios y Contacto -->
+        <div id="sub-ubicacion" class="mobile-subpanel">
+          <article class="compact-card flex-fill" style="justify-content: center; gap: 4px;">
+            <h4><i class="fa-solid fa-map-location-dot"></i> Dirección del Megacomplejo</h4>
+            <p>Av. América y Av. Melchor Pérez, Cochabamba, Bolivia. 4 canchas cerradas y 2 abiertas en un solo predio.</p>
+            <div class="compact-badges">
+              <span class="compact-badge">NIT: 5019283014</span>
+              <span class="compact-badge">Licencia Vigente</span>
+            </div>
+          </article>
+
+          <article class="compact-card flex-fill" style="justify-content: center; gap: 4px;">
+            <h4><i class="fa-solid fa-clock"></i> Horarios de Atención</h4>
+            <p>Lunes a Domingo (incluye feriados) de 14:00 a 00:00 (Medianoche).</p>
+            <div class="compact-badges">
+              <span class="compact-badge">Todos los Días</span>
+              <span class="compact-badge">14:00 – 00:00</span>
+            </div>
+          </article>
+
+          <article class="compact-card flex-fill" style="justify-content: center; gap: 4px;">
+            <h4><i class="fa-solid fa-headset"></i> Reservas y Contacto</h4>
+            <p>WhatsApp: (+591) 78854844 • reservas@deporzonewally.bo</p>
+            <div class="compact-badges">
+              <span class="compact-badge">Atención Directa</span>
+              <span class="compact-badge">Offline-First</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- === [BARRA INFERIOR MÓVIL DE 5 PESTAÑAS SIN SCROLL] === -->
+    <nav class="mobile-bottom-nav" aria-label="Navegación App Móvil DeporZone">
+      <button type="button" class="btn-nav-tab btn-hidratable active" data-hidratado="false" data-tab="tab-inicio">
+        <i class="fa-solid fa-house"></i>
+        <span>Inicio</span>
+      </button>
+      <button type="button" class="btn-nav-tab btn-hidratable" data-hidratado="false" data-tab="tab-canchas">
+        <i class="fa-solid fa-volleyball"></i>
+        <span>Canchas</span>
+      </button>
+      <button type="button" class="btn-nav-tab btn-hidratable" data-hidratado="false" data-tab="tab-reservar">
+        <i class="fa-solid fa-calendar-check"></i>
+        <span>Reservar</span>
+      </button>
+      <button type="button" class="btn-nav-tab btn-hidratable" data-hidratado="false" data-tab="tab-bitacora">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>Bitácora</span>
+      </button>
+      <button type="button" class="btn-nav-tab btn-hidratable" data-hidratado="false" data-tab="tab-info">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Info</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ==========================================
+       6. COMPONENTE MODAL UI (CONFIRMACIÓN + TIMER 30s)
+       ========================================== -->
+  <div id="modal-overlay" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4><i class="fa-solid fa-file-shield"></i> Confirmar Reserva — DeporZone</h4>
+        <button id="modal-close-btn" class="modal-close-btn btn-hidratable" data-hidratado="false" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Verifique el detalle de su transacción antes de procesar el registro:</p>
+        <div class="modal-details-box">
+          <div class="modal-detail-row">
+            <span><i class="fa-solid fa-volleyball"></i> Servicio / Cancha:</span>
+            <strong id="modal-court-name">Cancha 1: Illimani VIP</strong>
+          </div>
+          <div class="modal-detail-row">
+            <span><i class="fa-solid fa-user"></i> Titular:</span>
+            <strong id="modal-client-name">Gabriel Ramos</strong>
+          </div>
+          <div class="modal-detail-row">
+            <span><i class="fa-solid fa-calendar-day"></i> Fecha &amp; Horario:</span>
+            <strong id="modal-schedule">2026-11-16 (19:00 - 20:00)</strong>
+          </div>
+          <div class="modal-detail-row">
+            <span><i class="fa-solid fa-shield-halved"></i> Garantía Requerida:</span>
+            <strong id="modal-guarantee">50 BOB (Reembolsable)</strong>
+          </div>
+          <div class="modal-detail-row highlight-row">
+            <span><i class="fa-solid fa-money-bill-wave"></i> Monto a Cancelar:</span>
+            <strong id="modal-total-amount">80 BOB (1 Horas)</strong>
+          </div>
+        </div>
+
+        <div class="modal-timer-banner">
+          <i class="fa-solid fa-stopwatch"></i>
+          <span>Tiempo Restante para Confirmar: <strong id="modal-countdown">00:30s</strong></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="modal-cancel-btn" class="btn btn-modal-cancel btn-hidratable" data-hidratado="false">Cancelar</button>
+        <button type="button" id="modal-confirm-btn" class="btn btn-modal-confirm btn-hidratable" data-hidratado="false">Procesar Pago</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       7. FEEDBACK DINÁMICO FLOTANTE (TOAST ALERT PRO)
+       ========================================== -->
+  <div id="toast-container" class="toast-container">
+    <div id="toast-alert" class="toast-card" style="display: none;">
+      <div class="toast-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="toast-content">
+        <h5 id="toast-title">¡Reserva Procesada con Éxito!</h5>
+        <p id="toast-message">Tu turno ha quedado bloqueado en DeporZone Wally Park.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts: jQuery y lógica principal de DeporZone -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="script.js"></script>
+</body>
+
+</html>
