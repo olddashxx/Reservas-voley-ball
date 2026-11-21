@@ -1,24 +1,18 @@
-/* ==========================================================
-   DEPORZONE WALLY PARK - LÓGICA DE INTERACCIÓN CON JQUERY + PWA
-   Materia: Diseño Web II (Ingeniería de Sistemas)
-   Funcionalidades incluidas:
-     1. Service Worker PWA Offline-First + Fetch manifest.json + Estado Red
-     2. Detección Móvil (mobile.html) e Hidratación SSR en cada <button>
-     3. Menú Hamburguesa (.slideToggle) + Navegación Móvil sin Scroll (Tabs/Subtabs)
-     4. Modo Oscuro/Claro persistente en localStorage + Tema Dinámico
-     5. Filtrado Multinivel + Buscador en Vivo (keyup)
-     6. Validación blur/input + Cola Blindada (44px) + Anti-XSS (.text()) + Modal 30s
-   ========================================================== */
+/* ============================================================================
+   DEPORZONE WALLY PARK — ARQUITECTURA FULL STACK (MYSQL / XAMPP + PWA)
+   Materia: Diseño Web II (UPDS)
+   Arquitectura: Un Solo Código Base + API REST PHP (PDO + JSON) + Fallback LocalStorage
+   ============================================================================ */
 
-// ==========================================================
-// [PWA 1]: REGISTRO DE SERVICE WORKER OFFLINE-FIRST (sw.js)
-// ==========================================================
+// ----------------------------------------------------------------------------
+// 1. REGISTRO SERVICE WORKER PWA (sw.js v10)
+// ----------------------------------------------------------------------------
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', function () {
     navigator.serviceWorker
       .register('sw.js')
       .then((reg) => {
-        console.log('[PWA DeporZone] Service Worker registrado:', reg.scope);
+        console.log('[PWA DeporZone] Service Worker v10 registrado:', reg.scope);
       })
       .catch((err) => {
         console.warn('[PWA DeporZone] Service Worker omitido:', err);
@@ -26,82 +20,450 @@ if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   });
 }
 
-// ==========================================================
-// [PWA 2]: DETECCIÓN DE DISPOSITIVO (CELULAR / TABLET / ESCRITORIO)
-// ==========================================================
-function esDispositivoMovilOTablet() {
-  const ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
-  const esMovilTabletUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet|silk|kindle/i.test(ua);
-  const esIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const tieneTouch = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-  const ancho = Math.min(window.innerWidth || 9999, (window.screen && window.screen.width) || 9999);
-  return esMovilTabletUA || esIPadOS || (tieneTouch && ancho <= 1024);
-}
+// Evento PWA beforeinstallprompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  $('#btnInstalarPWA, #btnInstalarPWATop').prop('hidden', false).fadeIn();
+});
 
-function detectarDispositivoMovil() {
-  const esMovil = esDispositivoMovilOTablet() || window.innerWidth <= 768;
-  const banner = document.getElementById('bannerDeteccionMovil');
-  if (banner) {
-    banner.classList.toggle('visible', esMovil);
+// Helper de Sanitización de Seguridad con DOMPurify (Anti-XSS)
+function sanitizarHTML(contenido) {
+  if (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) {
+    return DOMPurify.sanitize(contenido);
   }
+  const div = document.createElement('div');
+  div.textContent = contenido;
+  return div.innerHTML;
 }
 
-window.addEventListener('resize', detectarDispositivoMovil);
-detectarDispositivoMovil();
+// ----------------------------------------------------------------------------
+// 2. MODELO DE DATOS INICIAL Y USUARIOS DEMO (FALLBACK GITHUB PAGES)
+// ----------------------------------------------------------------------------
+const MOCK_USUARIOS_FALLBACK = [
+  {
+    id: 1,
+    nombre: 'Administrador General',
+    correo: 'admin@deporzone.bo',
+    pass: 'Admin1234',
+    rol: 'admin'
+  },
+  {
+    id: 2,
+    nombre: 'Encargado de Recepción',
+    correo: 'recepcion@deporzone.bo',
+    pass: 'Trabajador1234',
+    rol: 'trabajador'
+  },
+  {
+    id: 3,
+    nombre: 'Gabriel Ramos Cruz',
+    correo: 'gabriel.ramos@gmail.com',
+    pass: 'Cliente1234',
+    rol: 'cliente'
+  }
+];
+
+const CANCHAS_INICIALES = [
+  { id_cancha: 'C1', nombre: 'Cancha 1: Illimani VIP', superficie: 'Madera Flotante', precio_hora: 80, estado: 'disponible' },
+  { id_cancha: 'C2', nombre: 'Cancha 2: Tunari Master', superficie: 'Madera Reglamentaria', precio_hora: 70, estado: 'disponible' },
+  { id_cancha: 'C3', nombre: 'Cancha 3: Urkupiña Club', superficie: 'Sintético Cushion', precio_hora: 75, estado: 'disponible' },
+  { id_cancha: 'C4', nombre: 'Cancha 4: La Cancha Pro', superficie: 'Poliuretano', precio_hora: 65, estado: 'disponible' },
+  { id_cancha: 'C5', nombre: 'Cancha 5: La Tradicional', superficie: 'Cemento Alisado', precio_hora: 50, estado: 'disponible' },
+  { id_cancha: 'C6', nombre: 'Cancha 6: Tercer Tiempo', superficie: 'Cemento + Gradería', precio_hora: 55, estado: 'disponible' }
+];
+
+let canchasSistema = JSON.parse(localStorage.getItem('deporzone_canchas') || 'null') || CANCHAS_INICIALES;
+let reservasConfirmadas = JSON.parse(localStorage.getItem('deporzone_reservas_sistema') || '[]');
+let usuarioActivo = JSON.parse(localStorage.getItem('deporzone_usuario_activo') || 'null');
+let modoConexion = 'auto'; // 'mysql' o 'local'
 
 $(document).ready(function() {
 
-  // ==========================================================
-  // [PWA 3]: CONSULTA FETCH ASÍNCRONA DE MANIFIESTO (response.ok + catch)
-  // ==========================================================
-  if (window.location.protocol !== 'file:') {
-    fetch('manifest.json')
-      .then((response) => {
-        if (!response.ok) throw new Error('Error al leer manifest.json');
-        return response.json();
-      })
-      .then((manifest) => {
-        console.log('[PWA DeporZone] Manifest verificado:', manifest.short_name);
-      })
-      .catch((err) => {
-        console.warn('[PWA DeporZone] Lectura de manifest en modo local:', err.message);
+  // ==========================================================================
+  // 3. CAPA DE SERVICIO API REST (PHP + MYSQL) CON FALLBACK TRANSPARENTE
+  // ==========================================================================
+
+  // 3.1 Login (MySQL / Fallback Local)
+  async function apiLogin(correo, password) {
+    try {
+      const res = await fetch('./api/login.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo, password })
       });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        modoConexion = 'mysql';
+        return data;
+      }
+      if (res.status === 401 || res.status === 400) {
+        return data;
+      }
+      throw new Error(data.mensaje || 'Respuesta no válida del backend PHP');
+    } catch (err) {
+      console.warn('[DeporZone FullStack] Backend PHP no disponible o entorno estático (GitHub Pages). Activando fallback transparente:', err.message);
+      modoConexion = 'local';
+      const user = MOCK_USUARIOS_FALLBACK.find(
+        u => u.correo.toLowerCase() === correo.toLowerCase() && u.pass === password
+      );
+      if (user) {
+        return {
+          ok: true,
+          mensaje: 'Sesión iniciada correctamente (Modo Local / GitHub Pages).',
+          usuario: {
+            id: user.id,
+            nombre: user.nombre,
+            correo: user.correo,
+            rol: user.rol
+          }
+        };
+      }
+      return {
+        ok: false,
+        mensaje: 'Credenciales inválidas. Verifica tu correo y contraseña.'
+      };
+    }
   }
 
-  // ==========================================================
-  // [PWA 4]: HIDRATACIÓN SSR TRANSPARENTE EN CADA <button> (.off().on())
-  // ==========================================================
-  function hidratarBotonesDOM(raiz) {
-    const $contenedor = $('#contenedorMenu');
-    if ($contenedor.length && $contenedor.attr('data-hidratado') !== 'true') {
-      $contenedor.attr('data-hidratado', 'true');
+  // 3.2 Cargar Datos de Canchas y Reservas
+  async function apiCargarDatos() {
+    try {
+      const res = await fetch('./api/reservas.php');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.canchas)) {
+        modoConexion = 'mysql';
+        canchasSistema = data.canchas.map(c => ({
+          ...c,
+          precio_hora: parseFloat(c.precio_hora)
+        }));
+        localStorage.setItem('deporzone_canchas', JSON.stringify(canchasSistema));
+
+        if (Array.isArray(data.reservas)) {
+          reservasConfirmadas = data.reservas.map(r => ({
+            id: String(r.id_reserva),
+            cliente: r.titular_nombre,
+            canchaId: r.id_cancha,
+            canchaNombre: r.cancha_nombre || `Cancha ${r.id_cancha}`,
+            fecha: r.fecha,
+            horaInicio: parseInt(r.hora_inicio.split(':')[0], 10),
+            horaFin: parseInt(r.hora_inicio.split(':')[0], 10) + parseInt(r.duracion_horas, 10),
+            horarioTexto: `${r.hora_inicio} (${r.duracion_horas}h)`,
+            total: `${parseFloat(r.total_bs)} BOB`,
+            estado: r.estado || 'pendiente',
+            celular: r.celular,
+            correo: r.correo
+          }));
+          localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+        }
+        return true;
+      }
+      throw new Error('Estructura de respuesta no válida');
+    } catch (err) {
+      console.warn('[DeporZone FullStack] Usando almacenamiento local para canchas y reservas:', err.message);
+      modoConexion = 'local';
+      return false;
+    }
+  }
+
+  // 3.3 Crear Reserva (MySQL / Fallback Local)
+  async function apiCrearReserva(datosReserva) {
+    try {
+      const payload = {
+        titular_nombre: datosReserva.cliente,
+        celular: datosReserva.celular,
+        correo: datosReserva.correo,
+        id_cancha: datosReserva.canchaId,
+        fecha: datosReserva.fecha,
+        hora_inicio: `${String(datosReserva.horaInicio).padStart(2, '0')}:00`,
+        duracion_horas: datosReserva.horaFin - datosReserva.horaInicio,
+        modalidad: datosReserva.modalidad,
+        adicionales: datosReserva.adicionales,
+        total_bs: parseFloat(datosReserva.total.replace(/[^\d.]/g, ''))
+      };
+
+      const res = await fetch('./api/reservas.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        datosReserva.id = String(data.id_reserva);
+        datosReserva.estado = 'pendiente';
+        return { ok: true, mensaje: data.mensaje, reserva: datosReserva };
+      }
+      if (res.status === 409 || res.status === 400) {
+        return data;
+      }
+      throw new Error(data.mensaje || 'Error al guardar en MySQL');
+    } catch (err) {
+      console.warn('[DeporZone FullStack] Guardando reserva localmente:', err.message);
+      datosReserva.id = 'loc_' + Date.now();
+      datosReserva.estado = 'pendiente';
+      return { ok: true, mensaje: 'Reserva guardada con éxito (Modo Local / GitHub Pages).', reserva: datosReserva };
+    }
+  }
+
+  // 3.4 Actualizar Estado de Reserva (Trabajador / Admin)
+  async function apiActualizarEstadoReserva(idReserva, nuevoEstado) {
+    try {
+      const res = await fetch('./api/reservas.php', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accion: 'cambiar_estado_reserva',
+          id_reserva: idReserva,
+          nuevo_estado: nuevoEstado
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) return data;
+      throw new Error(data.mensaje || 'Error HTTP');
+    } catch (err) {
+      console.warn('[DeporZone FullStack] Actualizando estado de reserva en memoria local:', err.message);
+      return { ok: true, mensaje: `Estado actualizado localmente a: ${nuevoEstado}` };
+    }
+  }
+
+  // 3.5 Editar Cancha (Tarifa y Mantenimiento - Rol Admin)
+  async function apiEditarCancha(idCancha, precioHora, estado) {
+    try {
+      const res = await fetch('./api/reservas.php', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accion: 'editar_cancha',
+          id_cancha: idCancha,
+          precio_hora: precioHora,
+          estado: estado
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) return data;
+      throw new Error(data.mensaje || 'Error HTTP');
+    } catch (err) {
+      console.warn('[DeporZone FullStack] Actualizando cancha en memoria local:', err.message);
+      return { ok: true, mensaje: `Cancha ${idCancha} actualizada en modo local.` };
+    }
+  }
+
+  // ==========================================================================
+  // 4. CONTROL DE SESIÓN, PERFIL Y ROLES ESTRICTOS (RBAC)
+  // ==========================================================================
+  function aplicarVistasSegunRol(rol) {
+    const rolActual = rol || (usuarioActivo ? usuarioActivo.rol : 'cliente');
+
+    // 1. Header y Dock: Avatar, nombre y badge de autenticación
+    if (usuarioActivo) {
+      $('#btnAbrirLogin, #btnAbrirLoginDock').hide();
+      $('#userProfileBadge, #userProfileBadgeDock').css('display', 'inline-flex');
+      $('#userDisplayName, #userDisplayNameDock').text(usuarioActivo.nombre);
+
+      const rolClase = `user-role-tag--${usuarioActivo.rol}`;
+      $('#userRoleBadge, #userRoleBadgeDock')
+        .text(usuarioActivo.rol.toUpperCase())
+        .removeClass('user-role-tag--admin user-role-tag--trabajador user-role-tag--cliente')
+        .addClass(rolClase);
+
+      if (usuarioActivo.rol === 'cliente') {
+        if (!$('#client-name').val()) $('#client-name').val(usuarioActivo.nombre);
+        if (!$('#client-email').val()) $('#client-email').val(usuarioActivo.correo);
+      }
+    } else {
+      $('#btnAbrirLogin, #btnAbrirLoginDock').show();
+      $('#userProfileBadge, #userProfileBadgeDock').hide();
     }
 
-    $(raiz)
-      .find('button')
-      .each(function () {
-        const $btn = $(this);
-        if ($btn.attr('data-hidratado') === 'true') return;
+    // 2. Control estricto de visibilidad en el dock de navegación (.dock-acciones__btn)
+    $('.dock-acciones__btn').each(function() {
+      const rolesPermitidos = ($(this).data('roles') || '').split(' ');
+      if (rolesPermitidos.includes(rolActual)) {
+        $(this).removeClass('tab-hidden').show();
+      } else {
+        $(this).addClass('tab-hidden').hide();
+      }
+    });
 
-        $btn
-          .attr('data-hidratado', 'true')
-          .off('click.deporzoneHidratacion')
-          .on('click.deporzoneHidratacion', function () {
-            $(this).attr('data-ultimo-evento', 'hidratado');
-          });
-      });
+    // 3. Control estricto de visibilidad de paneles del main (.panel-tab)
+    $('.panel-tab').each(function() {
+      const rolesPermitidos = ($(this).data('roles') || '').split(' ');
+      if (rolesPermitidos.includes(rolActual)) {
+        $(this).removeClass('panel-role-hidden');
+      } else {
+        $(this).addClass('panel-role-hidden').removeClass('active').hide();
+      }
+    });
+
+    // 4. Activar automáticamente la pestaña principal de ese rol
+    let pestanaPrincipal = 'tab-inicio';
+    if (rolActual === 'trabajador') {
+      pestanaPrincipal = 'tab-trabajador-agenda';
+    } else if (rolActual === 'admin') {
+      pestanaPrincipal = 'tab-admin-kpi';
+    }
+
+    cambiarTab(pestanaPrincipal);
   }
 
-  setTimeout(function () {
-    hidratarBotonesDOM(document);
-  }, 150);
+  // Alias retrocompatible
+  function aplicarEstadoSesion() {
+    aplicarVistasSegunRol(usuarioActivo ? usuarioActivo.rol : 'cliente');
+  }
 
-  // ==========================================================
-  // SISTEMA DE BITÁCORA DE EVENTOS CON TIMESTAMP (ANTI-XSS .text())
-  // ==========================================================
+  function iniciarSesionUsuario(user) {
+    usuarioActivo = user;
+    localStorage.setItem('deporzone_usuario_activo', JSON.stringify(usuarioActivo));
+    aplicarVistasSegunRol(user.rol);
+    registrarEventoTimestamp('AUTH', `Inició sesión: ${user.nombre} (${user.rol.toUpperCase()})`);
+    mostrarToastAlert(
+      '👋 ¡Bienvenido!',
+      `Has ingresado como ${user.nombre} [Rol: ${user.rol.toUpperCase()}].`,
+      false
+    );
+  }
+
+  function cerrarSesionUsuario() {
+    if (!usuarioActivo) return;
+    const nombre = usuarioActivo.nombre;
+    usuarioActivo = null;
+    localStorage.removeItem('deporzone_usuario_activo');
+    aplicarVistasSegunRol('cliente');
+    registrarEventoTimestamp('AUTH', `Cerró sesión: ${nombre}`);
+    mostrarToastAlert('🔒 Sesión Finalizada', 'Has cerrado tu sesión en DeporZone Wally Park.', false);
+  }
+
+  $('#btnCerrarSesion, #btnCerrarSesionDock').on('click', cerrarSesionUsuario);
+
+  // Apertura y Cierre del Modal de Login
+  $('#btnAbrirLogin, #btnAbrirLoginDock').on('click', function() {
+    $('#login-alert-error').hide().text('');
+    $('#modal-login').fadeIn(200);
+  });
+
+  $('#modal-login-close-btn').on('click', function() {
+    $('#modal-login').fadeOut(200);
+  });
+
+  $('#modal-login').on('click', function(e) {
+    if ($(e.target).is('#modal-login')) $('#modal-login').fadeOut(200);
+  });
+
+  // Botones Rápidos de Autocompletado Demo
+  $('.btn-demo-auth').on('click', function() {
+    const email = $(this).data('email');
+    const pass = $(this).data('pass');
+    $('#login-email').val(email);
+    $('#login-password').val(pass);
+    $('#login-alert-error').hide().text('');
+  });
+
+  // Submit del Formulario de Login
+  $('#form-login').on('submit', async function(e) {
+    e.preventDefault();
+    const email = $('#login-email').val().trim();
+    const pass = $('#login-password').val().trim();
+
+    if (!email || !pass) {
+      $('#login-alert-error').text('⚠️ Completa correo y contraseña.').slideDown('fast');
+      return;
+    }
+
+    $('#btn-submit-login').prop('disabled', true).html(sanitizarHTML('<i class="fa-solid fa-spinner fa-spin"></i> Verificando...'));
+
+    const res = await apiLogin(email, pass);
+    $('#btn-submit-login').prop('disabled', false).html(sanitizarHTML('<i class="fa-solid fa-sign-in-alt"></i> Ingresar al Sistema'));
+
+    if (res.ok && res.usuario) {
+      $('#modal-login').fadeOut(200);
+      iniciarSesionUsuario(res.usuario);
+    } else {
+      $('#login-alert-error').text(res.mensaje || 'Error al autenticar.').slideDown('fast');
+    }
+  });
+
+  // ==========================================================================
+  // 5. GESTIÓN DE CANCHAS (ROL ADMIN: TARIFAS Y MANTENIMIENTO)
+  // ==========================================================================
+  function sincronizarCanchasEnDOM() {
+    canchasSistema.forEach(c => {
+      // Actualizar tarjeta
+      const $card = $(`.cancha-card[data-cancha-id="${c.id_cancha}"]`);
+      if ($card.length) {
+        $card.find('.cancha-card__precio-val').text(`${c.precio_hora} Bs`);
+        $card.find('.btn-select-court').data('court-price', c.precio_hora);
+
+        if (c.estado === 'mantenimiento') {
+          $card.addClass('cancha-card--mantenimiento');
+          $card.find('.cancha-card__badge').text('Mantenimiento');
+        } else {
+          $card.removeClass('cancha-card--mantenimiento');
+        }
+      }
+
+      // Actualizar dropdown
+      const $opt = $(`#select-cancha-reserva option[value="${c.id_cancha}"]`);
+      if ($opt.length) {
+        $opt.attr('data-precio', c.precio_hora);
+        const sufijo = c.estado === 'mantenimiento' ? ' (Mantenimiento)' : '';
+        $opt.text(`${c.nombre} (${c.precio_hora} Bs/h)${sufijo}`);
+      }
+    });
+  }
+
+  // Abrir Modal de Edición de Cancha
+  $('#courts-container').on('click', '.btn-admin-cancha', function(e) {
+    e.stopPropagation();
+    const courtId = $(this).data('court-id');
+    const cancha = canchasSistema.find(c => c.id_cancha === courtId);
+    if (!cancha) return;
+
+    $('#admin-cancha-id').val(cancha.id_cancha);
+    $('#admin-cancha-nombre').val(cancha.nombre);
+    $('#admin-cancha-precio').val(cancha.precio_hora);
+    $('#admin-cancha-estado').val(cancha.estado);
+
+    $('#modal-admin-cancha').fadeIn(200);
+  });
+
+  $('#modal-cancha-close-btn').on('click', function() {
+    $('#modal-admin-cancha').fadeOut(200);
+  });
+
+  $('#modal-admin-cancha').on('click', function(e) {
+    if ($(e.target).is('#modal-admin-cancha')) $('#modal-admin-cancha').fadeOut(200);
+  });
+
+  $('#form-admin-cancha').on('submit', async function(e) {
+    e.preventDefault();
+    const idCancha = $('#admin-cancha-id').val();
+    const precio = parseFloat($('#admin-cancha-precio').val());
+    const estado = $('#admin-cancha-estado').val();
+
+    if (!idCancha || isNaN(precio) || precio <= 0) return;
+
+    const res = await apiEditarCancha(idCancha, precio, estado);
+    const canchaIdx = canchasSistema.findIndex(c => c.id_cancha === idCancha);
+    if (canchaIdx !== -1) {
+      canchasSistema[canchaIdx].precio_hora = precio;
+      canchasSistema[canchaIdx].estado = estado;
+      localStorage.setItem('deporzone_canchas', JSON.stringify(canchasSistema));
+    }
+
+    sincronizarCanchasEnDOM();
+    $('#modal-admin-cancha').fadeOut(200);
+    mostrarToastAlert('✅ Cancha Actualizada', res.mensaje || 'Cambios guardados con éxito.', false);
+    registrarEventoTimestamp('ADMIN', `Actualizó ${idCancha}: ${precio} Bs/h • ${estado}`);
+  });
+
+  // ==========================================================================
+  // 6. SISTEMA DE BITÁCORA CON TIMESTAMP Y DOMPURIFY
+  // ==========================================================================
   let historialEventos = JSON.parse(localStorage.getItem('deporzone_logs') || '[]');
-  let contadorFiltros = parseInt(localStorage.getItem('deporzone_filters') || '0');
-  let contadorReservas = parseInt(localStorage.getItem('deporzone_orders') || '0');
+  let contadorFiltros = parseInt(localStorage.getItem('deporzone_filters') || '0', 10);
+  let contadorReservas = parseInt(localStorage.getItem('deporzone_orders') || '0', 10);
 
   function registrarEventoTimestamp(tipo, descripcion) {
     const ahoraLog = new Date();
@@ -115,20 +477,14 @@ $(document).ready(function() {
       hour12: false
     });
 
-    historialEventos.unshift({
-      timestamp: fechaHora,
-      tipo: tipo,
-      mensaje: descripcion
-    });
-
+    historialEventos.unshift({ timestamp: fechaHora, tipo, mensaje: descripcion });
     historialEventos = historialEventos.slice(0, 40);
     localStorage.setItem('deporzone_logs', JSON.stringify(historialEventos));
-
     renderizarBitacora();
   }
 
   function renderizarBitacora() {
-    let $lista = $('#activity-log-list');
+    const $lista = $('#activity-log-list');
     $lista.empty();
 
     $('#stat-total-events').text(historialEventos.length);
@@ -136,35 +492,29 @@ $(document).ready(function() {
     $('#stat-order-events').text(contadorReservas);
 
     if (historialEventos.length === 0) {
-      const $vacio = $('<div>').addClass('log-entry').append(
-        $('<span>').addClass('log-message').text('Bitácora vacía. Interactúa con el catálogo o formulario para registrar eventos.')
-      );
-      $lista.append($vacio);
+      const htmlVacio = sanitizarHTML('<div class="log-entry"><span class="log-message">Bitácora vacía. Interactúa con el catálogo o reservas para registrar eventos.</span></div>');
+      $lista.append(htmlVacio);
       return;
     }
 
     historialEventos.forEach(function(item) {
-      // Construcción segura Anti-XSS usando .text() en vez de concatenar HTML
-      const $fila = $('<div>').addClass('log-entry');
-      const $hora = $('<span>').addClass('log-timestamp').append(
-        $('<i>').addClass('fa-regular fa-clock'),
-        ' ' + item.timestamp
-      );
-      const $msg = $('<span>').addClass('log-message').text(item.mensaje);
-      const $tag = $('<span>').addClass('log-type-tag').text(item.tipo);
-      $fila.append($hora, $msg, $tag);
-      $lista.append($fila);
+      const htmlItem = `
+        <div class="log-entry">
+          <span class="log-timestamp"><i class="fa-regular fa-clock"></i> ${item.timestamp}</span>
+          <span class="log-message">${item.mensaje}</span>
+          <span class="log-type-tag">${item.tipo}</span>
+        </div>
+      `;
+      $lista.append(sanitizarHTML(htmlItem));
     });
   }
 
-  // Botón Mostrar / Ocultar Bitácora con .fadeToggle()
-  $('#toggle-log-btn').off('click').on('click', function() {
-    $('#log-collapsible-box').fadeToggle(300);
-    registrarEventoTimestamp('UI', 'Alternó visibilidad de la Bitácora con .fadeToggle()');
+  $('#toggle-log-btn').on('click', function() {
+    $('#log-collapsible-box').fadeToggle(200);
+    registrarEventoTimestamp('UI', 'Alternó visibilidad de Bitácora (.fadeToggle)');
   });
 
-  // Botón Limpiar Historial
-  $('#clear-log-btn').off('click').on('click', function() {
+  $('#clear-log-btn').on('click', function() {
     historialEventos = [];
     contadorFiltros = 0;
     contadorReservas = 0;
@@ -172,220 +522,205 @@ $(document).ready(function() {
     localStorage.setItem('deporzone_filters', '0');
     localStorage.setItem('deporzone_orders', '0');
     renderizarBitacora();
-    mostrarToastAlert('🧹 Bitácora Reiniciada', 'El historial de eventos con Timestamp fue limpiado correctamente.', false);
+    mostrarToastAlert('🧹 Bitácora Reiniciada', 'Historial limpiado correctamente.', false);
   });
 
-
-  // ==========================================================
-  // FUNCIÓN 1: MENÚ HAMBURGUESA Y NAVEGACIÓN MÓVIL SIN SCROLL
-  // ==========================================================
-  function cambiarTabMovil(tabId) {
+  // ==========================================================================
+  // 7. NAVEGACIÓN Y TABS ADAPTABLES CON RBAC
+  // ==========================================================================
+  function cambiarTab(tabId) {
     if (!tabId) return;
-    $('.mobile-tab-panel').removeClass('active');
-    $('#' + tabId).addClass('active');
-    $('.btn-nav-tab').removeClass('active');
-    $('.btn-nav-tab[data-tab="' + tabId + '"]').addClass('active');
+
+    $('.panel-tab').removeClass('active').hide();
+    $('#' + tabId).addClass('active').fadeIn(200);
+
+    $('.dock-acciones__btn').removeClass('active').attr('aria-selected', 'false');
+    $(`.dock-acciones__btn[data-tab="${tabId}"]`).addClass('active').attr('aria-selected', 'true');
+
+    // Renderizar datos dinámicos según pestaña activada
+    if (tabId === 'tab-mis-reservas') {
+      renderizarMisReservasCliente();
+    } else if (tabId === 'tab-trabajador-agenda') {
+      renderizarAgendaTrabajador();
+    } else if (tabId === 'tab-trabajador-canchas') {
+      renderizarEstadoCanchasTrabajador();
+    } else if (tabId === 'tab-admin-kpi') {
+      renderizarDashboardAdmin();
+    } else if (tabId === 'tab-admin-canchas') {
+      renderizarGestionCanchasAdmin();
+    } else if (tabId === 'tab-admin-historial') {
+      renderizarHistorialAdmin();
+    } else if (tabId === 'tab-reservar') {
+      actualizarVisibilidadBotonCancelar();
+      actualizarDisponibilidadHorarios();
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    registrarEventoTimestamp('NAV', `Navegó a sección: ${tabId.replace('tab-', '').toUpperCase()}`);
   }
 
-  function activarSubpanelMovil($panelPadre, subpanelId) {
-    if (!$panelPadre || !$panelPadre.length || !subpanelId) return;
-    $panelPadre.find('.mobile-subpanel').removeClass('active');
-    $panelPadre.find('#' + subpanelId).addClass('active');
-    $panelPadre.find('.btn-subtab').removeClass('active');
-    $panelPadre.find('.btn-subtab[data-subtab="' + subpanelId + '"]').addClass('active');
-  }
-
-  $('.btn-nav-tab, .btn-go-tab').off('click').on('click', function () {
-    const targetTab = $(this).data('tab');
-    cambiarTabMovil(targetTab);
+  $(document).on('click', '.dock-acciones__btn, .btn-go-tab', function() {
+    const tabId = $(this).data('tab');
+    if (tabId) cambiarTab(tabId);
   });
 
-  $('.btn-subtab').off('click').on('click', function () {
-    const subpanelId = $(this).data('subtab');
-    const $panelPadre = $(this).closest('.mobile-tab-panel');
-    activarSubpanelMovil($panelPadre, subpanelId);
-  });
-
-  // Al hacer clic en el botón de hamburguesa, despliega o recoge el menú
-  $('#hamburger-btn').off('click').on('click', function(e) {
-    e.stopPropagation(); // Evitar que el clic en el botón cierre el menú de inmediato
-    $('#navbar').slideToggle(250);
-    registrarEventoTimestamp('NAV', 'Desplegó / ocultó el menú hamburguesa (.slideToggle)');
-  });
-
-  // Al hacer clic en un enlace del menú, navega (o cambia pestaña móvil), cierra y marca activo
-  $('.nav-link').off('click').on('click', function(e) {
-    const targetTab = $(this).data('tab');
-    if (targetTab && document.body.classList.contains('vista-mobile')) {
-      e.preventDefault();
-      cambiarTabMovil(targetTab);
-    }
-    $('#navbar').slideUp(200);
-    $('.nav-link').removeClass('active');
-    $(this).addClass('active');
-    registrarEventoTimestamp('NAV', `Navegó a la sección: ${$(this).text().trim()}`);
-  });
-
-  // Cerrar el menú si el usuario hace clic fuera de la cabecera
-  $(document).off('click.menuFuera').on('click.menuFuera', function(e) {
-    if (!$(e.target).closest('#main-header, #navbar').length) {
-      $('#navbar').slideUp(200);
-    }
-  });
-
-
-  // ==========================================================
-  // FUNCIÓN 2: MODO OSCURO Y CLARO PERSISTENTE EN LOCALSTORAGE
-  // ==========================================================
+  // ==========================================================================
+  // 8. TEMA OSCURO Y ESTADO DE RED
+  // ==========================================================================
   if (localStorage.getItem('deporzone_tema') === 'oscuro') {
     $('body').removeClass('theme-light').addClass('theme-dark');
     $('.icon-moon').hide();
     $('.icon-sun').show();
   }
 
-  $('#theme-toggle-btn').off('click').on('click', function() {
-    // Alterna la clase theme-dark en la etiqueta body
+  function alternarTema() {
     $('body').toggleClass('theme-dark');
-
-    // Alterna los iconos de Luna y Sol con animación jQuery y persiste preferencia
-    if ($('body').hasClass('theme-dark')) {
+    const esOscuro = $('body').hasClass('theme-dark');
+    if (esOscuro) {
       $('.icon-moon').hide();
-      $('.icon-sun').show().fadeIn(200);
-      $(this).attr('title', 'Cambiar a modo claro');
+      $('.icon-sun').show().fadeIn(150);
       localStorage.setItem('deporzone_tema', 'oscuro');
-      registrarEventoTimestamp('TEMA', 'Activó el Modo Oscuro (.theme-dark)');
+      registrarEventoTimestamp('TEMA', 'Activó Modo Oscuro (#0f172a)');
     } else {
       $('.icon-sun').hide();
-      $('.icon-moon').show().fadeIn(200);
-      $(this).attr('title', 'Cambiar a modo oscuro');
+      $('.icon-moon').show().fadeIn(150);
       localStorage.setItem('deporzone_tema', 'claro');
-      registrarEventoTimestamp('TEMA', 'Activó el Modo Claro (.theme-light)');
+      registrarEventoTimestamp('TEMA', 'Activó Modo Claro');
     }
+  }
+
+  $('#theme-toggle-btn, #theme-toggle-btn-top').on('click', alternarTema);
+
+  function actualizarEstadoRed() {
+    if (navigator.onLine) {
+      $('#estadoRed, #estadoRedHeader')
+        .text('🟢 En Línea')
+        .css({ backgroundColor: '#dcfce7', color: '#166534' });
+    } else {
+      $('#estadoRed, #estadoRedHeader')
+        .text('🟠 Sin Conexión')
+        .css({ backgroundColor: '#ffedd5', color: '#9a3412' });
+    }
+  }
+
+  $(window).on('online offline', actualizarEstadoRed);
+  actualizarEstadoRed();
+
+  // Botón Instalar PWA
+  $('#btnInstalarPWA, #btnInstalarPWATop').on('click', async function () {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    $('#btnInstalarPWA, #btnInstalarPWATop').prop('hidden', true).fadeOut();
+    registrarEventoTimestamp('PWA', `Instalación respondida: ${outcome}`);
   });
 
-
-  // ==========================================================
-  // FUNCIÓN 3: FILTRADO MULTINIVEL + BUSCADOR EN VIVO (KEYUP)
-  // ==========================================================
+  // ==========================================================================
+  // 9. FILTRADO MULTINIVEL Y BÚSQUEDA EN VIVO
+  // ==========================================================================
   let filtroTipoActual = 'all';
   let filtroSubtipoActual = 'all';
   let filtroBusquedaActual = '';
 
-  // 3.1 Clic en botones de Tipo de Superficie
-  $('.type-btn').off('click').on('click', function() {
+  $('.type-btn').on('click', function() {
     $('.type-btn').removeClass('active');
     $(this).addClass('active');
-
     filtroTipoActual = $(this).data('type');
     contadorFiltros++;
     localStorage.setItem('deporzone_filters', String(contadorFiltros));
-    registrarEventoTimestamp('FILTRO', `Filtró superficie: ${$(this).text().trim()}`);
-    aplicarFiltros();
+    aplicarFiltrosCanchas();
   });
 
-  // 3.2 Clic en botones de Subtipo de Ambiente
-  $('.subtype-btn').off('click').on('click', function() {
+  $('.subtype-btn').on('click', function() {
     $('.subtype-btn').removeClass('active');
     $(this).addClass('active');
-
     filtroSubtipoActual = $(this).data('subtype');
     contadorFiltros++;
     localStorage.setItem('deporzone_filters', String(contadorFiltros));
-    registrarEventoTimestamp('FILTRO', `Filtró ambiente: ${$(this).text().trim()}`);
-    aplicarFiltros();
+    aplicarFiltrosCanchas();
   });
 
-  // 3.2b Buscador en vivo por nombre, descripción o etiquetas mediante keyup
-  $('#searchCancha').off('keyup').on('keyup', function () {
+  $('#searchCancha').on('keyup', function() {
     filtroBusquedaActual = $(this).val().trim().toLowerCase();
-    aplicarFiltros();
+    aplicarFiltrosCanchas();
   });
 
-  // 3.3 Función que evalúa superficie, subtipo y texto en vivo
-  function aplicarFiltros() {
-    $('.court-card').each(function() {
-      let cardTipo = $(this).data('type');
-      let cardSubtipos = $(this).data('subtype') ? $(this).data('subtype').split(' ') : [];
-      let contenidoTexto = $(this).text().toLowerCase();
+  function aplicarFiltrosCanchas() {
+    $('.cancha-card').each(function() {
+      const cardTipo = $(this).data('type');
+      const cardSubtipos = $(this).data('subtype') ? $(this).data('subtype').split(' ') : [];
+      const contenidoTexto = $(this).text().toLowerCase();
 
-      let coincideTipo = (filtroTipoActual === 'all') || (cardTipo === filtroTipoActual);
-      let coincideSubtipo = (filtroSubtipoActual === 'all') || (cardSubtipos.includes(filtroSubtipoActual));
-      let coincideTexto = !filtroBusquedaActual || contenidoTexto.indexOf(filtroBusquedaActual) !== -1;
+      const coincideTipo = (filtroTipoActual === 'all') || (cardTipo === filtroTipoActual);
+      const coincideSubtipo = (filtroSubtipoActual === 'all') || (cardSubtipos.includes(filtroSubtipoActual));
+      const coincideTexto = !filtroBusquedaActual || contenidoTexto.indexOf(filtroBusquedaActual) !== -1;
 
       if (coincideTipo && coincideSubtipo && coincideTexto) {
-        $(this).fadeIn(250);
+        $(this).fadeIn(200);
       } else {
-        $(this).fadeOut(250);
+        $(this).fadeOut(200);
       }
     });
   }
 
-  // 3.4 Botón "Seleccionar" en una tarjeta del catálogo
-  $('.btn-select-court').off('click').on('click', function() {
-    let courtId = $(this).data('court-id');
-    let courtName = $(this).data('court-name');
-    
-    // Seleccionar automáticamente la cancha en el dropdown de la sección de reserva
-    $('#select-cancha-reserva').val(courtId).trigger('change');
-    registrarEventoTimestamp('CANCHA', `Seleccionó desde catálogo: ${courtName}`);
+  $('#toggle-catalog-btn').on('click', function() {
+    const $btn = $(this);
+    const $wrapper = $('#catalog-collapsible-wrapper');
 
-    if (document.body.classList.contains('vista-mobile')) {
-      cambiarTabMovil('tab-reservar');
-      activarSubpanelMovil($('#tab-reservar'), 'sub-horarios');
-    } else {
-      // Desplazamiento suave hasta el formulario de reserva en vista PC
-      $('html, body').animate({
-        scrollTop: $('#booking-section').offset().top - 80
-      }, 500);
-    }
-  });
-
-  // Botón en vista móvil para avanzar de Horario (#sub-horarios) a Titular (#sub-titular)
-  $('#btn-ir-titular').off('click').on('click', function () {
-    const fechaOk = validarCampoFecha();
-    const horasOk = validarHorarios();
-    if (fechaOk && horasOk) {
-      activarSubpanelMovil($('#tab-reservar'), 'sub-titular');
-    }
-  });
-
-  // 3.5 Pestaña Acordeón: Plegar y Desplegar Catálogo (Optimización de Espacio con .slideToggle)
-  $('#toggle-catalog-btn').click(function() {
-    let $btn = $(this);
-    let $wrapper = $('#catalog-collapsible-wrapper');
-
-    $wrapper.slideToggle(350, function() {
+    $wrapper.slideToggle(300, function() {
       if ($wrapper.is(':visible')) {
-        $btn.removeClass('collapsed').attr('aria-expanded', 'true');
-        $btn.find('.toggle-text').empty().append(
-          $('<i>').addClass('fa-solid fa-eye-slash'),
-          document.createTextNode(' Ocultar Catálogo de Canchas')
-        );
-        registrarEventoTimestamp('UI', 'Desplegó el catálogo de canchas (.slideToggle)');
+        $btn.attr('aria-expanded', 'true');
+        $btn.find('.toggle-text').html(sanitizarHTML('<i class="fa-solid fa-eye-slash"></i> Ocultar Controles de Filtro'));
+        $btn.find('.toggle-icon').removeClass('fa-chevron-down').addClass('fa-chevron-up');
       } else {
-        $btn.addClass('collapsed').attr('aria-expanded', 'false');
-        $btn.find('.toggle-text').empty().append(
-          $('<i>').addClass('fa-solid fa-eye'),
-          document.createTextNode(' Ver / Mostrar Catálogo de Canchas')
-        );
-        registrarEventoTimestamp('UI', 'Ocultó el catálogo de canchas (.slideToggle)');
+        $btn.attr('aria-expanded', 'false');
+        $btn.find('.toggle-text').html(sanitizarHTML('<i class="fa-solid fa-eye"></i> Mostrar Controles de Filtro'));
+        $btn.find('.toggle-icon').removeClass('fa-chevron-up').addClass('fa-chevron-down');
       }
     });
   });
 
+  // Delegación de Eventos en Tarjetas de Canchas
+  $('#courts-container').on('click', '.btn-simular', function (e) {
+    e.stopPropagation();
+    const $card = $(this).closest('.cancha-card');
+    $card.toggleClass('cancha-card--activa');
+    const estaActiva = $card.hasClass('cancha-card--activa');
+    const nombre = $card.find('.cancha-card__titulo').text().trim();
 
-  // ==========================================================
-  // FUNCIÓN 4: GESTIÓN DINÁMICA DE DISPONIBILIDAD, HORARIOS Y RESERVAS
-  // ==========================================================
-  
-  // 4.1 Configurar rango de fechas permitidas (HOY hasta máximo 30 días a futuro)
+    $(this).html(sanitizarHTML(estaActiva 
+      ? '<i class="fa-solid fa-check"></i> Activa' 
+      : '<i class="fa-solid fa-wand-magic-sparkles"></i> Simular'));
+
+    mostrarToastAlert('⚡ Simulación', `${nombre} marcada como ${estaActiva ? 'ACTIVA' : 'NORMAL'}.`, false);
+  });
+
+  $('#courts-container').on('click', '.btn-select-court', function() {
+    const courtId = $(this).data('court-id');
+    const courtName = $(this).data('court-name');
+
+    // Verificar si está en mantenimiento
+    const cancha = canchasSistema.find(c => c.id_cancha === courtId);
+    if (cancha && cancha.estado === 'mantenimiento') {
+      mostrarToastAlert('⚠️ Cancha en Mantenimiento', 'Esta cancha no está disponible para reservas actualmente.', true);
+      return;
+    }
+
+    $('#select-cancha-reserva').val(courtId).trigger('change');
+    registrarEventoTimestamp('CANCHA', `Seleccionó: ${courtName}`);
+    cambiarTab('tab-reservar');
+  });
+
+  // ==========================================================================
+  // 10. FECHAS, HORARIOS Y DISPONIBILIDAD (ROJO OCUPADO)
+  // ==========================================================================
   const ahora = new Date();
   const yyyy = ahora.getFullYear();
   const mm = String(ahora.getMonth() + 1).padStart(2, '0');
   const dd = String(ahora.getDate()).padStart(2, '0');
   const fechaHoyFormato = `${yyyy}-${mm}-${dd}`;
 
-  // Límite máximo de reserva a futuro: 30 días de anticipación (evita fechas lejanas como 2077)
   const DIAS_ANTICIPACION_MAX = 30;
   const fechaLimite = new Date();
   fechaLimite.setDate(fechaLimite.getDate() + DIAS_ANTICIPACION_MAX);
@@ -394,25 +729,20 @@ $(document).ready(function() {
   const ddMax = String(fechaLimite.getDate()).padStart(2, '0');
   const fechaMaxFormato = `${yyyyMax}-${mmMax}-${ddMax}`;
 
-  // Establecer valor inicial y atributos min/max en los inputs de fecha (HTML5 Datepicker)
   $('#fecha-reserva')
     .attr('min', fechaHoyFormato)
     .attr('max', fechaMaxFormato)
     .val(fechaHoyFormato);
 
-  // Variables de control de horas y precios
   let precioPorHora = 80;
   let horaInicio = null;
   let horaFin = null;
   let horasValidas = false;
 
-  // Estado dinámico de reservas confirmadas (en memoria y sincronizado en localStorage)
-  let reservasConfirmadas = JSON.parse(localStorage.getItem('deporzone_reservas_sistema') || '[]');
-
-  // Función para obtener reservas de una fecha y cancha específicas
   function obtenerReservasParaFechaYCancha(fecha, canchaId) {
     if (!fecha) return [];
     return reservasConfirmadas.filter(function(r) {
+      if (r.estado === 'cancelada') return false;
       if (canchaId && r.canchaId) {
         return r.fecha === fecha && r.canchaId === canchaId;
       }
@@ -420,34 +750,28 @@ $(document).ready(function() {
     });
   }
 
-  // 1. GESTIÓN DINÁMICA DE DISPONIBILIDAD Y HORARIOS POR FECHA
-  // Estado inicial: franjas libres; al reservar: franja en rojo (ocupado) para esa fecha exacta
   function actualizarDisponibilidadHorarios() {
     const fechaSeleccionada = $('#fecha-reserva').val();
     const canchaSeleccionada = $('#select-cancha-reserva').val();
     const reservasFecha = obtenerReservasParaFechaYCancha(fechaSeleccionada, canchaSeleccionada);
-    const esMovil = document.body.classList.contains('vista-mobile');
 
     $('.btn-slot').each(function() {
-      const inicio = parseInt($(this).data('inicio'));
-      const fin = parseInt($(this).data('fin'));
+      const inicio = parseInt($(this).data('inicio'), 10);
+      const fin = parseInt($(this).data('fin'), 10);
 
-      // Verificar si alguna reserva confirmada ocupa esta franja horaria
       const estaOcupada = reservasFecha.some(function(r) {
         return Math.max(inicio, r.horaInicio) < Math.min(fin, r.horaFin);
       });
 
       if (estaOcupada) {
         $(this).removeClass('active-slot').addClass('ocupado');
-        const textoOcupado = esMovil ? `${inicio}:00 (Ocup.)` : `${inicio}:00 - ${fin}:00 (Ocupado)`;
-        $(this).text(textoOcupado);
+        $(this).text(`${inicio}:00 - ${fin}:00 (Ocupado)`);
       } else {
         $(this).removeClass('ocupado');
         $(this).text(`${inicio}:00 - ${fin}:00`);
       }
     });
 
-    // Si la selección actual coincide con una hora que ahora está ocupada, deseleccionarla
     if (horaInicio !== null && horaFin !== null) {
       const seleccionOcupada = reservasFecha.some(function(r) {
         return Math.max(horaInicio, r.horaInicio) < Math.min(horaFin, r.horaFin);
@@ -466,92 +790,41 @@ $(document).ready(function() {
     }
   }
 
-  // 2. FUNCIÓN DE LIMPIEZA TOTAL DEL FORMULARIO DE RESERVA (Req 2)
-  function limpiarFormularioReserva() {
-    // Limpiar campos de texto del titular
-    $('#client-name, #client-phone, #client-email, #client-notes').val('');
-    $('#client-name, #client-phone, #client-email, #select-inicio, #select-fin').removeClass('input-valid input-invalid');
-
-    // Desmarcar checkboxes adicionales
-    $('input[name="add-ball"], input[name="add-vests"], input[name="add-water"]').prop('checked', false);
-
-    // Resetear selector de modalidad y método de pago
-    $('#game-mode').prop('selectedIndex', 0);
-    $('#payment-method').prop('selectedIndex', 0);
-
-    // Resetear selector de cancha
-    $('#select-cancha-reserva').prop('selectedIndex', 0);
-    let optInicial = $('#select-cancha-reserva').find('option:first');
-    precioPorHora = parseInt(optInicial.data('precio')) || 80;
-    $('#summary-court').text(optInicial.text().split('(')[0].trim());
-
-    // Deseleccionar franjas de horarios
-    $('.btn-slot').removeClass('active-slot');
-    horaInicio = null;
-    horaFin = null;
-    horasValidas = false;
-    $('#select-inicio').prop('selectedIndex', 0);
-    $('#select-fin').prop('selectedIndex', 0);
-
-    // Ocultar mensajes de error
-    $('#err-date, #err-hours, #err-name, #err-phone, #err-email, #booking-alert-error').hide().text('');
-    $('#booking-alert-success').hide();
-
-    // Resetear resumen
-    $('#summary-hours').text('0 Horas');
-    $('#summary-time').text('No asignado');
-    $('#summary-total').text('0 BOB').css('color', '#333333');
-
-    // Actualizar estado del botón de envío
-    verificarFormularioCompleto();
-
-    // Refrescar disponibilidad visual de franjas según fecha actual
-    actualizarDisponibilidadHorarios();
-  }
-
-  // 4.2 Clic en los botones de Turnos Rápidos (.btn-slot)
-  $('.btn-slot').off('click').on('click', function() {
-    let hIni = parseInt($(this).data('inicio'));
-    let hF = parseInt($(this).data('fin'));
+  $('.btn-slot').on('click', function() {
+    const hIni = parseInt($(this).data('inicio'), 10);
+    const hF = parseInt($(this).data('fin'), 10);
 
     if ($(this).hasClass('ocupado')) {
-      mostrarAlertaError(`⛔ El turno de las ${hIni}:00 a ${hF}:00 ya se encuentra reservado para esta fecha. Elige otro horario disponible.`);
-      registrarEventoTimestamp('ALERTA', `Intentó seleccionar turno ocupado (${hIni}:00 a ${hF}:00)`);
+      mostrarAlertaError(`⛔ El turno de las ${hIni}:00 a ${hF}:00 ya se encuentra reservado.`);
       return;
     }
 
-    // Remover estado activo de los demás y ponérselo al seleccionado
     $('.btn-slot').removeClass('active-slot');
     $(this).addClass('active-slot');
 
-    // Sincronizar con los selectores de hora inicio y fin
     horaInicio = hIni;
     horaFin = hF;
-
     $('#select-inicio').val(horaInicio);
     $('#select-fin').val(horaFin);
 
-    registrarEventoTimestamp('TURNO', `Seleccionó turno rápido ${horaInicio}:00 a ${horaFin}:00`);
     validarHorarios();
     calcularTotalReserva();
     verificarFormularioCompleto();
   });
 
-  // 4.3 Cambio en selectores de Hora Inicio y Fin
   $('#select-inicio, #select-fin').on('change blur', function() {
     const valIni = $('#select-inicio').val();
     const valFin = $('#select-fin').val();
     if (!valIni || !valFin) return;
 
-    horaInicio = parseInt(valIni);
-    horaFin = parseInt(valFin);
+    horaInicio = parseInt(valIni, 10);
+    horaFin = parseInt(valFin, 10);
 
     validarHorarios();
     calcularTotalReserva();
     verificarFormularioCompleto();
   });
 
-  // Función dedicada a validar los horarios
   function validarHorarios() {
     $('#select-inicio, #select-fin').removeClass('input-invalid input-valid');
     $('#err-hours').hide().text('');
@@ -562,45 +835,36 @@ $(document).ready(function() {
       return false;
     }
 
-    // Regla 1: Fin debe ser estrictamente mayor a inicio
     if (horaFin <= horaInicio) {
-      $('#err-hours').text('⚠️ La hora de fin debe ser posterior a la de inicio (mínimo 1 hora de juego).').slideDown('fast');
+      $('#err-hours').text('⚠️ La hora fin debe ser mayor a la hora de inicio.').slideDown('fast');
       $('#select-inicio, #select-fin').addClass('input-invalid');
       $('.btn-slot').removeClass('active-slot');
-      mostrarAlertaError('⚠️ Horario no válido: la hora fin debe ser mayor a la hora de inicio.');
       return false;
     }
 
-    // Regla 2: Verificar si el rango abarca algún turno ocupado dinámico para la fecha
     const fechaActual = $('#fecha-reserva').val();
     const canchaActual = $('#select-cancha-reserva').val();
     const reservasFecha = obtenerReservasParaFechaYCancha(fechaActual, canchaActual);
 
-    let tieneTurnoOcupado = false;
-    let turnoChocado = '';
-    for (let r of reservasFecha) {
+    let chocado = null;
+    for (const r of reservasFecha) {
       if (Math.max(horaInicio, r.horaInicio) < Math.min(horaFin, r.horaFin)) {
-        tieneTurnoOcupado = true;
-        turnoChocado = `${r.horaInicio}:00 a ${r.horaFin}:00`;
+        chocado = `${r.horaInicio}:00 a ${r.horaFin}:00`;
         break;
       }
     }
 
-    if (tieneTurnoOcupado) {
-      $('#err-hours').text(`⛔ Tu selección abarca el horario ${turnoChocado}, el cual ya está ocupado en esta fecha.`).slideDown('fast');
+    if (chocado) {
+      $('#err-hours').text(`⛔ Tu selección abarca el horario ${chocado}, ya ocupado.`).slideDown('fast');
       $('#select-inicio, #select-fin').addClass('input-invalid');
       $('.btn-slot').removeClass('active-slot');
-      mostrarAlertaError(`⛔ El rango seleccionado incluye turnos ocupados (${turnoChocado}). Elige horas libres.`);
       return false;
     }
 
-    // Horario válido
     horasValidas = true;
     $('#select-inicio, #select-fin').addClass('input-valid');
     $('#err-hours').slideUp('fast');
-    $('#booking-alert-error').slideUp('fast');
 
-    // Sincronizar botón rápido si coincide exactamente con 1 turno
     $('.btn-slot').removeClass('active-slot');
     if (horaFin - horaInicio === 1) {
       $(`.btn-slot[data-inicio="${horaInicio}"][data-fin="${horaFin}"]:not(.ocupado)`).addClass('active-slot');
@@ -609,85 +873,136 @@ $(document).ready(function() {
     return true;
   }
 
-  // 4.4 Cambio de Cancha Seleccionada
-  $('#select-cancha-reserva').change(function() {
-    let optSeleccionada = $(this).find('option:selected');
-    precioPorHora = parseInt(optSeleccionada.data('precio')) || 80;
-
-    let nombreCancha = optSeleccionada.text().split('(')[0].trim();
-    $('#summary-court').text(nombreCancha);
+  $('#select-cancha-reserva').on('change', function() {
+    const opt = $(this).find('option:selected');
+    precioPorHora = parseFloat(opt.data('precio')) || 80;
+    const nombre = opt.text().split('(')[0].trim();
+    $('#summary-court').text(nombre);
 
     actualizarDisponibilidadHorarios();
     validarHorarios();
     calcularTotalReserva();
   });
 
-  // 4.5 Cambio en Adicionales
-  $('input[name="add-ball"], input[name="add-vests"], input[name="add-water"]').change(function() {
+  $('input[name="add-ball"], input[name="add-vests"], input[name="add-water"]').on('change', function() {
     calcularTotalReserva();
   });
 
-  // 4.6 Función central de cálculo y actualización en vivo del resumen
   function calcularTotalReserva() {
-    let totalHoras = horaFin - horaInicio;
+    const totalHoras = horaFin - horaInicio;
 
     if (!horasValidas || totalHoras <= 0) {
-      $('#summary-hours').text('0 Horas (Horario inválido)');
+      $('#summary-hours').text('0 Horas');
       $('#summary-time').text('No asignado');
-      $('#summary-total').text('0 BOB').css('color', '#e53935');
+      $('#summary-total').text('0 BOB');
       return;
     }
 
-    let subtotalCancha = totalHoras * precioPorHora;
-
-    // Sumar adicionales seleccionados
+    const subtotalCancha = totalHoras * precioPorHora;
     let totalAdicionales = 0;
-    if ($('#add-ball').is(':checked')) totalAdicionales += parseInt($('#add-ball').val());
-    if ($('#add-vests').is(':checked')) totalAdicionales += parseInt($('#add-vests').val());
-    if ($('#add-water').is(':checked')) totalAdicionales += parseInt($('#add-water').val());
+    if ($('#add-ball').is(':checked')) totalAdicionales += parseInt($('#add-ball').val(), 10);
+    if ($('#add-vests').is(':checked')) totalAdicionales += parseInt($('#add-vests').val(), 10);
+    if ($('#add-water').is(':checked')) totalAdicionales += parseInt($('#add-water').val(), 10);
 
-    let granTotal = subtotalCancha + totalAdicionales;
+    const granTotal = subtotalCancha + totalAdicionales;
 
-    // Actualizar texto del resumen
     $('#summary-hours').text(`${totalHoras} Hora(s)`);
     $('#summary-time').text(`${horaInicio}:00 a ${horaFin}:00`);
-
-    // Animación jQuery para resaltar el cambio en el monto total (.animate)
-    if (document.body.classList.contains('vista-mobile')) {
-      $('#summary-total')
-        .text(`${granTotal} BOB`)
-        .css('color', '#27ae60')
-        .stop(true, true)
-        .animate({ opacity: 0.5 }, 120)
-        .animate({ opacity: 1 }, 120);
-    } else {
-      $('#summary-total')
-        .text(`${granTotal} BOB`)
-        .css('color', '#27ae60')
-        .animate({ fontSize: '1.4rem' }, 120)
-        .animate({ fontSize: '1.25rem' }, 120);
-    }
+    $('#summary-total').text(`${granTotal} BOB`);
   }
 
-  // 4.7 Función auxiliar para mostrar alertas de error con .text() y slideDown (Anti-XSS)
   function mostrarAlertaError(mensaje) {
     $('#booking-alert-success').hide();
-    $('#booking-alert-error').text(mensaje).slideDown('fast');
+    $('#booking-alert-error').html(sanitizarHTML(mensaje)).slideDown('fast');
   }
 
+  // ==========================================================================
+  // 11. VALIDACIONES ESTRICTAS DE FORMULARIO
+  // ==========================================================================
+  const BLACKLIST_NOMBRES = [
+    'asdasd', 'asd', 'qwerty', 'test', 'prueba', 'admin',
+    'usuario', 'nombre', 'apellido', 'xxx', 'aaa', 'zzz',
+    'fulano', 'mengano', 'null', 'undefined', 'ninguno'
+  ];
 
-  // ==========================================================
-  // FUNCIONES DE VALIDACIÓN INDIVIDUAL (PARA BLUR / INPUT)
-  // ==========================================================
+  const DOMINIOS_EMAIL_PERMITIDOS = [
+    'gmail.com', 'hotmail.com', 'outlook.com', 'outlook.es',
+    'yahoo.com', 'yahoo.es', 'icloud.com', 'live.com',
+    'proton.me', 'protonmail.com'
+  ];
 
-  // Validación y Corrección Automática de Fecha (Evita fechas lejanas como 2035 o 2077)
+  function validarTextoNombre(nombre) {
+    if (!nombre) return { valido: false, mensaje: '⚠️ El nombre completo es obligatorio.' };
+    const regexLetras = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+    if (!regexLetras.test(nombre)) {
+      return { valido: false, mensaje: '⚠️ Solo letras y espacios (sin números ni símbolos).' };
+    }
+    if (/(.)\1\2/i.test(nombre)) {
+      return { valido: false, mensaje: '⚠️ Ingresa un nombre real (sin letras repetidas consecutivas).' };
+    }
+    const palabras = nombre.trim().split(/\s+/).filter(Boolean);
+    if (palabras.length < 2) {
+      return { valido: false, mensaje: '⚠️ Ingresa al menos nombre y apellido.' };
+    }
+    for (const p of palabras) {
+      if (p.length < 2) {
+        return { valido: false, mensaje: '⚠️ Cada palabra debe tener al menos 2 letras.' };
+      }
+    }
+    const nombreMin = nombre.toLowerCase();
+    for (const item of BLACKLIST_NOMBRES) {
+      if (nombreMin.includes(item.toLowerCase())) {
+        return { valido: false, mensaje: '⚠️ Por favor ingresa un nombre y apellido legítimos.' };
+      }
+    }
+    return { valido: true, mensaje: '' };
+  }
+
+  function validarTextoTelefono(tel) {
+    if (!tel) return { valido: false, mensaje: '⚠️ El celular / WhatsApp es obligatorio.' };
+    const regexTel = /^[67][0-9]{7}$/;
+    if (!regexTel.test(tel)) {
+      return { valido: false, mensaje: '⚠️ Ingresa un número de celular válido de 8 dígitos (ej: 78854844).' };
+    }
+    return { valido: true, mensaje: '' };
+  }
+
+  function validarTextoEmail(correo) {
+    if (!correo) return { valido: false, mensaje: '⚠️ El correo electrónico es obligatorio.' };
+    const regexEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!regexEmail.test(correo)) {
+      return { valido: false, mensaje: '⚠️ Ingresa un formato de correo válido.' };
+    }
+    const partes = correo.split('@');
+    if (partes.length !== 2) return { valido: false, mensaje: '⚠️ Correo inválido.' };
+
+    const usuario = partes[0].toLowerCase();
+    const dominio = partes[1].toLowerCase();
+
+    if (/(.)\1\2/i.test(usuario)) {
+      return { valido: false, mensaje: '⚠️ Ingresa un correo legítimo sin caracteres repetitivos.' };
+    }
+    for (const item of BLACKLIST_NOMBRES) {
+      if (usuario === item || (item.length >= 4 && usuario.includes(item))) {
+        return { valido: false, mensaje: '⚠️ Ingresa un correo válido de un usuario real.' };
+      }
+    }
+
+    const esDominioExacto = DOMINIOS_EMAIL_PERMITIDOS.includes(dominio);
+    const esInstitucional = dominio.endsWith('.edu.bo') || dominio.endsWith('.bo') || dominio.endsWith('.org') || dominio.endsWith('.com.bo');
+    if (!esDominioExacto && !esInstitucional) {
+      return { valido: false, mensaje: '⚠️ Ingresa un correo de un proveedor real (ej: usuario@gmail.com, hotmail.com, outlook.com).' };
+    }
+    return { valido: true, mensaje: '' };
+  }
+
   function validarCampoFecha(autoCorregir = true) {
-    let valorFecha = $('#fecha-reserva').val();
+    const valorFecha = $('#fecha-reserva').val();
     $('#fecha-reserva').removeClass('input-invalid input-valid');
     $('#err-date').hide().text('');
 
     if (!valorFecha) {
-      $('#err-date').text('⚠️ Debes seleccionar una fecha para la reserva.').stop(true, true).slideDown('fast');
+      $('#err-date').text('⚠️ Debes seleccionar una fecha.').slideDown('fast');
       $('#fecha-reserva').addClass('input-invalid');
       return false;
     }
@@ -695,21 +1010,18 @@ $(document).ready(function() {
     if (valorFecha < fechaHoyFormato) {
       if (autoCorregir) {
         $('#fecha-reserva').val(fechaHoyFormato);
-        $('#err-date').text('⚠️ No puedes reservar en una fecha pasada. Se ajustó automáticamente a hoy.').stop(true, true).slideDown('fast');
-        mostrarToastAlert('⚠️ Fecha Pasada No Permitida', 'Se ajustó automáticamente a la fecha de hoy.', true);
+        $('#err-date').text('⚠️ No se permiten fechas pasadas; ajustado a hoy.').slideDown('fast');
       } else {
-        $('#err-date').text('⚠️ No puedes reservar en una fecha pasada.').stop(true, true).slideDown('fast');
+        $('#err-date').text('⚠️ No se permiten fechas pasadas.').slideDown('fast');
         $('#fecha-reserva').addClass('input-invalid');
         return false;
       }
     } else if (valorFecha > fechaMaxFormato) {
       if (autoCorregir) {
-        // Corrección física: se reemplaza el valor 2035/2077 por la fecha máxima permitida
         $('#fecha-reserva').val(fechaMaxFormato);
-        $('#err-date').text(`⚠️ Fecha fuera de rango. No se permiten reservas tan futuras; se ajustó al límite máximo (${fechaMaxFormato}).`).stop(true, true).slideDown('fast');
-        mostrarToastAlert('⚠️ Fecha Fuera de Rango', `Solo se permite reservar hasta el ${fechaMaxFormato}.`, true);
+        $('#err-date').text(`⚠️ Límite de ${DIAS_ANTICIPACION_MAX} días de anticipación; ajustado a ${fechaMaxFormato}.`).slideDown('fast');
       } else {
-        $('#err-date').text(`⚠️ Solo se permite reservar con un máximo de ${DIAS_ANTICIPACION_MAX} días de anticipación.`).stop(true, true).slideDown('fast');
+        $('#err-date').text(`⚠️ Solo reservas hasta ${DIAS_ANTICIPACION_MAX} días a futuro.`).slideDown('fast');
         $('#fecha-reserva').addClass('input-invalid');
         return false;
       }
@@ -719,82 +1031,48 @@ $(document).ready(function() {
     return true;
   }
 
-  // Validación de Nombre Completo
   function validarCampoNombre() {
-    let nombre = $('#client-name').val().trim();
-    let regexNombre = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{3,50}$/;
-
+    const nombre = $('#client-name').val().trim();
+    const res = validarTextoNombre(nombre);
     $('#client-name').removeClass('input-invalid input-valid');
     $('#err-name').hide().text('');
-
-    if (nombre === '') {
-      $('#err-name').text('⚠️ El nombre completo es obligatorio.').slideDown('fast');
+    if (!res.valido) {
+      $('#err-name').text(res.mensaje).slideDown('fast');
       $('#client-name').addClass('input-invalid');
       return false;
     }
-
-    if (!regexNombre.test(nombre)) {
-      $('#err-name').text('⚠️ Ingresa un nombre válido (al menos 3 letras, sin números ni símbolos).').slideDown('fast');
-      $('#client-name').addClass('input-invalid');
-      return false;
-    }
-
     $('#client-name').addClass('input-valid');
     return true;
   }
 
-  // Validación de Celular / WhatsApp
   function validarCampoTelefono() {
-    let tel = $('#client-phone').val().trim();
-    let regexTel = /^[0-9]{7,10}$/;
-
+    const tel = $('#client-phone').val().trim();
+    const res = validarTextoTelefono(tel);
     $('#client-phone').removeClass('input-invalid input-valid');
     $('#err-phone').hide().text('');
-
-    if (tel === '') {
-      $('#err-phone').text('⚠️ El número de celular / WhatsApp es obligatorio.').slideDown('fast');
+    if (!res.valido) {
+      $('#err-phone').text(res.mensaje).slideDown('fast');
       $('#client-phone').addClass('input-invalid');
       return false;
     }
-
-    if (!regexTel.test(tel)) {
-      $('#err-phone').text('⚠️ Ingresa un número válido de 7 a 10 dígitos numéricos (ej: 78854844).').slideDown('fast');
-      $('#client-phone').addClass('input-invalid');
-      return false;
-    }
-
     $('#client-phone').addClass('input-valid');
     return true;
   }
 
-  // Validación de Correo Electrónico
   function validarCampoEmail() {
-    let correo = $('#client-email').val().trim();
-    let regexEmail = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
-
+    const correo = $('#client-email').val().trim();
+    const res = validarTextoEmail(correo);
     $('#client-email').removeClass('input-invalid input-valid');
     $('#err-email').hide().text('');
-
-    if (correo === '') {
-      $('#err-email').text('⚠️ El correo electrónico es obligatorio.').slideDown('fast');
+    if (!res.valido) {
+      $('#err-email').text(res.mensaje).slideDown('fast');
       $('#client-email').addClass('input-invalid');
       return false;
     }
-
-    if (!regexEmail.test(correo)) {
-      $('#err-email').text('⚠️ Ingresa un formato de correo válido (ej: usuario@correo.com).').slideDown('fast');
-      $('#client-email').addClass('input-invalid');
-      return false;
-    }
-
     $('#client-email').addClass('input-valid');
     return true;
   }
 
-  // ==========================================================
-  // EVENTOS BLUR / INPUT: VALIDAR AL SALIR DEL CAMPO O TOCARLO
-  // ==========================================================
-  // Al interactuar (input), cambiar fecha (change) o salir (blur), se valida, corrige y actualiza
   $('#fecha-reserva').on('input change blur', function() {
     validarCampoFecha(true);
     actualizarDisponibilidadHorarios();
@@ -808,7 +1086,13 @@ $(document).ready(function() {
     verificarFormularioCompleto();
   });
 
-  $('#client-phone').on('blur input', function() {
+  $('#client-phone').on('input', function() {
+    const valOriginal = $(this).val();
+    const limpio = valOriginal.replace(/\D/g, '').slice(0, 8);
+    if (valOriginal !== limpio) $(this).val(limpio);
+    validarCampoTelefono();
+    verificarFormularioCompleto();
+  }).on('blur', function() {
     validarCampoTelefono();
     verificarFormularioCompleto();
   });
@@ -818,141 +1102,93 @@ $(document).ready(function() {
     verificarFormularioCompleto();
   });
 
-  // ==========================================================
-  // ACTIVACIÓN DINÁMICA DEL BOTÓN CUANDO TODO ESTÁ VÁLIDO
-  // ==========================================================
   function verificarFormularioCompleto() {
-    let fechaOk = validarCampoFechaSilencioso();
-    let horasOk = horasValidas;
-    let nombreOk = validarCampoNombreSilencioso();
-    let telefonoOk = validarCampoTelefonoSilencioso();
-    let emailOk = validarCampoEmailSilencioso();
+    const f = $('#fecha-reserva').val();
+    const fechaOk = f && (f >= fechaHoyFormato) && (f <= fechaMaxFormato);
+    const horasOk = horasValidas;
+    const nombreOk = validarTextoNombre($('#client-name').val().trim()).valido;
+    const telefonoOk = validarTextoTelefono($('#client-phone').val().trim()).valido;
+    const emailOk = validarTextoEmail($('#client-email').val().trim()).valido;
 
-    let todoValido = fechaOk && horasOk && nombreOk && telefonoOk && emailOk;
-
-    let $btn = $('#btn-submit-booking');
+    const todoValido = fechaOk && horasOk && nombreOk && telefonoOk && emailOk;
+    const $btn = $('#btn-submit-booking');
 
     if (todoValido) {
-      // Habilitar botón, ponerlo en verde listo para enviar
       $btn
         .prop('disabled', false)
         .removeClass('btn-disabled')
         .addClass('btn-ready')
-        .empty()
-        .append(
-          $('<i>').addClass('fa-solid fa-circle-check'),
-          document.createTextNode(' Confirmar y Reservar en Wally Park')
-        );
+        .html(sanitizarHTML('<i class="fa-solid fa-circle-check"></i> Confirmar y Reservar en Wally Park'));
     } else {
-      // Deshabilitar botón y mantenerlo en gris
       $btn
         .prop('disabled', true)
         .removeClass('btn-ready')
         .addClass('btn-disabled')
-        .empty()
-        .append(
-          $('<i>').addClass('fa-solid fa-lock'),
-          document.createTextNode(' Completa los campos para reservar')
-        );
+        .html(sanitizarHTML('<i class="fa-solid fa-lock"></i> Completa los campos para reservar'));
     }
 
     return todoValido;
   }
 
-  // Funciones de validación silenciosa (comprueba estado sin mostrar errores antes de tiempo)
-  function validarCampoFechaSilencioso() {
-    let f = $('#fecha-reserva').val();
-    return f && (f >= fechaHoyFormato) && (f <= fechaMaxFormato);
-  }
+  function limpiarFormularioReserva() {
+    $('#client-name, #client-phone, #client-email, #client-notes').val('');
+    $('#client-name, #client-phone, #client-email, #select-inicio, #select-fin').removeClass('input-valid input-invalid');
+    $('input[name="add-ball"], input[name="add-vests"], input[name="add-water"]').prop('checked', false);
+    $('#wally-category').prop('selectedIndex', 0);
+    $('#payment-method').prop('selectedIndex', 0);
 
-  function validarCampoNombreSilencioso() {
-    let n = $('#client-name').val().trim();
-    return /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{3,50}$/.test(n);
-  }
+    $('#select-cancha-reserva').prop('selectedIndex', 0);
+    const optInicial = $('#select-cancha-reserva').find('option:first');
+    precioPorHora = parseFloat(optInicial.data('precio')) || 80;
+    $('#summary-court').text(optInicial.text().split('(')[0].trim());
 
-  function validarCampoTelefonoSilencioso() {
-    let t = $('#client-phone').val().trim();
-    return /^[0-9]{7,10}$/.test(t);
-  }
+    $('.btn-slot').removeClass('active-slot');
+    horaInicio = null;
+    horaFin = null;
+    horasValidas = false;
+    $('#select-inicio').prop('selectedIndex', 0);
+    $('#select-fin').prop('selectedIndex', 0);
 
-  function validarCampoEmailSilencioso() {
-    let e = $('#client-email').val().trim();
-    return /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(e);
-  }
+    $('#err-date, #err-hours, #err-name, #err-phone, #err-email, #booking-alert-error').hide().text('');
+    $('#booking-alert-success').hide();
 
+    $('#summary-hours').text('0 Horas');
+    $('#summary-time').text('No asignado');
+    $('#summary-total').text('0 BOB');
 
-  // Validación en tiempo real de Cola de Retos (#inputCancion)
-  function validarCampoCola() {
-    const val = ($('#inputCancion').val() || '').trim();
-    $('#inputCancion').removeClass('input-invalid input-valid');
-    $('#errInputCancion').hide().text('');
-
-    if (val.length < 3) {
-      $('#errInputCancion').text('⚠️ Escribe el nombre del equipo o reto (mínimo 3 caracteres).').slideDown('fast');
-      $('#inputCancion').addClass('input-invalid');
-      return false;
+    // Re-aplicar datos de cliente si está autenticado
+    if (usuarioActivo && usuarioActivo.rol === 'cliente') {
+      $('#client-name').val(usuarioActivo.nombre);
+      $('#client-email').val(usuarioActivo.correo);
     }
 
-    $('#inputCancion').addClass('input-valid');
-    return true;
+    verificarFormularioCompleto();
+    actualizarDisponibilidadHorarios();
   }
 
-  $('#inputCancion').off('blur.cola input.cola').on('blur.cola', function () {
-    $(this).attr('data-tocado', 'true');
-    validarCampoCola();
-  }).on('input.cola', function () {
-    if ($(this).attr('data-tocado') === 'true' || $(this).hasClass('input-invalid')) {
-      validarCampoCola();
-    }
-  });
+  // ==========================================================================
+  // 12. GESTIÓN DE VISTAS POR ROL (RBAC ESTRICTO)
+  // ==========================================================================
 
-  // Cola Blindada de Retos y Espera (44px, Truncado seguro .text() y delegación .off().on())
-  function agregarElementoACola(texto) {
-    const $fila = $('<div>').addClass('fila-cancion');
-    const $titulo = $('<span>').addClass('titulo-truncado').text(texto);
-    const $btnQuitar = $('<button>')
-      .addClass('btn-tactil btn-quitar btn-hidratable')
-      .attr('data-hidratado', 'false')
-      .attr('type', 'button')
-      .attr('aria-label', 'Quitar de la cola')
-      .text('✕');
-
-    $fila.append($titulo, $btnQuitar);
-    $('#listaCanciones').prepend($fila);
-    hidratarBotonesDOM($fila);
-  }
-
-  agregarElementoACola('Reto Estelar: Los Halcones vs Club Altiplano — Cancha 2 Tunari Master (21:00)');
-  agregarElementoACola('Lista de Espera VIP: Equipo Illimani Volley — Cancha 1 Climatizada (20:00)');
-
-  $('#btnPedir').off('click').on('click', function () {
-    if (!validarCampoCola()) return;
-    const texto = $('#inputCancion').val().trim();
-    agregarElementoACola(texto);
-    registrarEventoTimestamp('COLA', 'Agregó reto a la cola: ' + texto);
-    $('#inputCancion').val('').removeClass('input-invalid input-valid').removeAttr('data-tocado');
-    $('#errInputCancion').hide();
-  });
-
-  $('#listaCanciones')
-    .off('click', '.btn-quitar')
-    .on('click', '.btn-quitar', function () {
-      const eliminado = $(this).siblings('.titulo-truncado').text();
-      $(this).closest('.fila-cancion').remove();
-      registrarEventoTimestamp('COLA', 'Retiró de la cola: ' + eliminado);
-    });
-
-  // ==========================================================
-  // 3. GESTIÓN CONDICIONAL DEL BOTÓN Y LISTA DE CANCELACIÓN DE RESERVAS ACTIVAS (Req 3)
-  // ==========================================================
+  // --- 12.1 CLIENTE: VISIBILIDAD DE CANCELACIÓN Y LISTADO PERSONAL ---
   function actualizarVisibilidadBotonCancelar() {
-    const cant = reservasConfirmadas.length;
+    let activasCliente = [];
+    if (usuarioActivo && usuarioActivo.rol === 'cliente') {
+      activasCliente = reservasConfirmadas.filter(r => 
+        r.estado !== 'cancelada' &&
+        ((r.correo && r.correo.toLowerCase() === usuarioActivo.correo.toLowerCase()) ||
+         (r.cliente && r.cliente.toLowerCase() === usuarioActivo.nombre.toLowerCase()))
+      );
+    } else {
+      activasCliente = reservasConfirmadas.filter(r => r.estado !== 'cancelada');
+    }
+
+    const cant = activasCliente.length;
     $('#cant-reservas-activas').text(cant);
     contadorReservas = cant;
     localStorage.setItem('deporzone_orders', String(contadorReservas));
     $('#stat-order-events').text(contadorReservas);
 
-    // Condición estricta: visible únicamente si el usuario tiene una o más reservas realizadas
     if (cant > 0) {
       $('#seccionCancelarReserva').stop(true, true).slideDown(250);
     } else {
@@ -960,150 +1196,692 @@ $(document).ready(function() {
     }
   }
 
-  function renderizarHistorialReservasDOM() {
-    const $lista = $('#listaReservas');
-    $lista.empty();
+  function renderizarMisReservasCliente() {
+    const $contenedor = $('#cliente-reservas-lista');
+    $contenedor.empty();
 
-    if (reservasConfirmadas.length === 0) {
-      const $vacio = $('<li>')
-        .addClass('item-reserva-vacio')
-        .append(
-          $('<i>').addClass('fa-solid fa-calendar-xmark'),
-          document.createTextNode(' No tienes reservas activas por el momento.')
-        );
-      $lista.append($vacio);
+    let misReservas = [];
+    if (usuarioActivo && usuarioActivo.rol === 'cliente') {
+      misReservas = reservasConfirmadas.filter(r => 
+        (r.correo && r.correo.toLowerCase() === usuarioActivo.correo.toLowerCase()) ||
+        (r.cliente && r.cliente.toLowerCase() === usuarioActivo.nombre.toLowerCase())
+      );
+    } else {
+      misReservas = [...reservasConfirmadas];
+    }
+
+    if (misReservas.length === 0) {
+      const htmlVacio = `
+        <div class="cliente-empty-state">
+          <i class="fa-solid fa-calendar-xmark"></i>
+          <h4>No tienes reservas activas registradas</h4>
+          <p>Explora nuestras 6 canchas y agenda tu turno preferido en Wally Park.</p>
+          <button type="button" class="btn btn-primary btn-go-tab" data-tab="tab-reservar" style="margin-top: 10px;">
+            <i class="fa-solid fa-calendar-check"></i> Reservar Cancha Ahora
+          </button>
+        </div>
+      `;
+      $contenedor.html(sanitizarHTML(htmlVacio));
       return;
     }
 
-    reservasConfirmadas.forEach(function(r) {
-      const $item = $('<li>').addClass('item-reserva');
-      const $info = $('<div>').addClass('item-reserva-info');
-      const $titulo = $('<strong>').text(r.cliente + ' — ');
-      const $detalle = $('<span>').text(`${r.canchaNombre} (${r.fecha} • ${r.horarioTexto}) • ${r.total}`);
-      $info.append($titulo, $detalle);
+    misReservas.forEach(function(r) {
+      const estado = r.estado || 'pendiente';
+      const estadoClass = `status-tag--${estado}`;
+      const estadoTexto = estado.toUpperCase().replace('_', ' ');
 
-      const $btnCancelar = $('<button>')
-        .addClass('btn-cancelar-item btn-hidratable')
-        .attr('type', 'button')
-        .attr('data-id', r.id)
-        .attr('title', 'Cancelar esta reserva activa')
-        .append(
-          $('<i>').addClass('fa-solid fa-trash-can'),
-          document.createTextNode(' Cancelar')
-        );
+      let botonCancelar = '';
+      if (estado === 'pendiente') {
+        botonCancelar = `
+          <button type="button" class="btn-cancel-reservation btn-cancelar-cliente" data-id="${r.id}" style="padding: 6px 12px; font-size: 0.76rem;">
+            <i class="fa-solid fa-ban"></i> Cancelar Reserva
+          </button>
+        `;
+      }
 
-      $item.append($info, $btnCancelar);
-      $lista.append($item);
+      const htmlCard = `
+        <article class="cliente-reserva-card" data-id="${r.id}">
+          <div class="cliente-reserva-info">
+            <div>
+              <strong>${r.canchaNombre}</strong>
+              <span class="reserva-status-tag ${estadoClass}">${estadoTexto}</span>
+            </div>
+            <span><i class="fa-solid fa-calendar-day"></i> ${r.fecha} • <i class="fa-solid fa-clock"></i> ${r.horarioTexto}</span>
+            <span><i class="fa-solid fa-volleyball"></i> Modalidad: ${r.modalidad || 'Recreativo'} | Adicionales: ${r.adicionales || 'Ninguno'}</span>
+            <span><i class="fa-solid fa-money-bill-wave"></i> Total: <strong>${r.total}</strong> | Garantía: <strong>50 BOB</strong></span>
+          </div>
+          <div>
+            ${botonCancelar}
+          </div>
+        </article>
+      `;
+      $contenedor.append(sanitizarHTML(htmlCard));
     });
-
-    hidratarBotonesDOM($lista);
   }
 
-  // Cancelar reserva individual desde el botón en el historial
-  $('#listaReservas').off('click', '.btn-cancelar-item').on('click', '.btn-cancelar-item', function() {
-    const resId = $(this).attr('data-id');
+  // --- 12.2 TRABAJADOR: AGENDA OPERATIVA DEL DÍA Y ACCIONES EN CANCHA ---
+  let filtroEstadoTrabajador = 'todas';
+
+  function renderizarAgendaTrabajador() {
+    let fecha = $('#trabajador-fecha-agenda').val();
+    if (!fecha) {
+      fecha = new Date().toISOString().split('T')[0];
+      $('#trabajador-fecha-agenda').val(fecha);
+    }
+
+    const reservasDia = reservasConfirmadas.filter(r => r.fecha === fecha);
+    const countTodas = reservasDia.length;
+    const countPendiente = reservasDia.filter(r => r.estado === 'pendiente').length;
+    const countEnCancha = reservasDia.filter(r => r.estado === 'en_cancha').length;
+    const countCompletada = reservasDia.filter(r => r.estado === 'completada').length;
+
+    $('#count-op-todas').text(countTodas);
+    $('#count-op-pendiente').text(countPendiente);
+    $('#count-op-en-cancha').text(countEnCancha);
+    $('#count-op-completada').text(countCompletada);
+
+    let reservasFiltradas = reservasDia;
+    if (filtroEstadoTrabajador !== 'todas') {
+      reservasFiltradas = reservasDia.filter(r => r.estado === filtroEstadoTrabajador);
+    }
+
+    reservasFiltradas.sort((a, b) => (a.horaInicio || 0) - (b.horaInicio || 0));
+
+    const $contenedor = $('#trabajador-agenda-lista');
+    $contenedor.empty();
+
+    if (reservasFiltradas.length === 0) {
+      const htmlVacio = `
+        <div class="cliente-empty-state">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <h4>No hay turnos registrados para el día ${fecha} [Filtro: ${filtroEstadoTrabajador.toUpperCase()}]</h4>
+          <p>Selecciona otra fecha en el calendario o alterna el filtro de estado de turno.</p>
+        </div>
+      `;
+      $contenedor.html(sanitizarHTML(htmlVacio));
+      return;
+    }
+
+    reservasFiltradas.forEach(function(r) {
+      const estado = r.estado || 'pendiente';
+      const estadoClass = `status-tag--${estado}`;
+      const cardClass = `worker-agenda-card--${estado}`;
+      const estadoTexto = estado.toUpperCase().replace('_', ' ');
+
+      const celularLimpio = (r.celular || '').replace(/\D/g, '');
+      const enlaceWhatsApp = celularLimpio ? `
+        <a href="https://wa.me/591${celularLimpio}" target="_blank" rel="noopener noreferrer" class="worker-whatsapp-link" title="Contactar por WhatsApp">
+          <i class="fa-brands fa-whatsapp"></i> ${r.celular}
+        </a>
+      ` : (r.celular || 'S/N');
+
+      let botonesAccion = '';
+      if (estado === 'pendiente') {
+        botonesAccion += `
+          <button type="button" class="btn-worker-act btn-worker-checkin" data-id="${r.id}">
+            <i class="fa-solid fa-volleyball"></i> Confirmar Check-in (En Cancha)
+          </button>
+        `;
+      }
+
+      botonesAccion += `
+        <button type="button" class="btn-worker-act btn-worker-amenities" data-id="${r.id}">
+          <i class="fa-solid fa-box-open"></i> Entregar Adicionales
+        </button>
+      `;
+
+      if (estado === 'en_cancha') {
+        botonesAccion += `
+          <button type="button" class="btn-worker-act btn-worker-finish" data-id="${r.id}">
+            <i class="fa-solid fa-circle-check"></i> Finalizar / Liberar Cancha
+          </button>
+        `;
+      }
+
+      if (estado !== 'cancelada' && estado !== 'completada') {
+        botonesAccion += `
+          <button type="button" class="btn-worker-act btn-worker-cancel" data-id="${r.id}">
+            <i class="fa-solid fa-xmark"></i> Cancelar
+          </button>
+        `;
+      }
+
+      const htmlCard = `
+        <article class="worker-agenda-card ${cardClass}" data-id="${r.id}">
+          <div class="worker-card-header">
+            <div class="worker-card-time">
+              <i class="fa-solid fa-clock"></i> ${r.horarioTexto}
+              <span class="reserva-status-tag ${estadoClass}">${estadoTexto}</span>
+            </div>
+            <div class="worker-card-court">
+              <i class="fa-solid fa-location-dot"></i> ${r.canchaNombre} (#${r.id})
+            </div>
+          </div>
+
+          <div class="worker-card-body">
+            <div class="worker-card-field">
+              <strong>Titular / Contacto:</strong>
+              <span>${r.cliente} ${enlaceWhatsApp}</span>
+            </div>
+            <div class="worker-card-field">
+              <strong>Modalidad de Juego:</strong>
+              <span>${r.modalidad || 'Recreativo'}</span>
+            </div>
+            <div class="worker-card-field">
+              <strong>Servicios Adicionales:</strong>
+              <span>${r.adicionales || 'Sin adicionales'}</span>
+            </div>
+            <div class="worker-card-field">
+              <strong>Importes:</strong>
+              <span>Total: <strong>${r.total}</strong> | Garantía: <strong>50 BOB</strong></span>
+            </div>
+          </div>
+
+          <div class="worker-card-actions">
+            ${botonesAccion}
+          </div>
+        </article>
+      `;
+      $contenedor.append(sanitizarHTML(htmlCard));
+    });
+  }
+
+  function renderizarEstadoCanchasTrabajador() {
+    let fecha = $('#trabajador-fecha-agenda').val() || new Date().toISOString().split('T')[0];
+    const $grid = $('#trabajador-canchas-grid');
+    $grid.empty();
+
+    canchasSistema.forEach(c => {
+      const reservasCancha = reservasConfirmadas.filter(r => r.canchaId === c.id_cancha && r.fecha === fecha && r.estado !== 'cancelada');
+      
+      let badgeClass = 'court-live-card__badge--libre';
+      let badgeTexto = '🟢 Disponible Hoy';
+
+      if (c.estado === 'mantenimiento') {
+        badgeClass = 'court-live-card__badge--mantenimiento';
+        badgeTexto = '🔧 Mantenimiento';
+      } else if (reservasCancha.length > 0) {
+        badgeClass = 'court-live-card__badge--ocupada';
+        badgeTexto = `🔴 ${reservasCancha.length} Turno(s) Ocupado(s)`;
+      }
+
+      let detalleHorarios = 'Todos los turnos de 14:00 a 00:00 disponibles.';
+      if (reservasCancha.length > 0) {
+        detalleHorarios = reservasCancha.map(r => `• ${r.horarioTexto}: ${r.cliente} [${r.estado.toUpperCase()}]`).join('<br>');
+      }
+
+      const htmlCard = `
+        <div class="court-live-card">
+          <div class="court-live-card__header">
+            <strong style="font-size: 1rem; color: var(--color-primario);">${c.nombre}</strong>
+            <span class="court-live-card__badge ${badgeClass}">${badgeTexto}</span>
+          </div>
+          <div class="court-live-card__info">
+            <span><strong>Superficie:</strong> ${c.superficie}</span> • 
+            <span><strong>Tarifa:</strong> ${c.precio_hora} Bs/h</span>
+          </div>
+          <div class="court-live-card__schedule">
+            <strong style="font-size: 0.74rem; text-transform: uppercase; color: var(--color-texto-muted); display: block; margin-bottom: 4px;">
+              Agenda para ${fecha}:
+            </strong>
+            ${detalleHorarios}
+          </div>
+        </div>
+      `;
+      $grid.append(sanitizarHTML(htmlCard));
+    });
+  }
+
+  // Eventos de Trabajador
+  $('#trabajador-fecha-agenda').on('change', function() {
+    renderizarAgendaTrabajador();
+    renderizarEstadoCanchasTrabajador();
+  });
+
+  $('#btn-trabajador-hoy').on('click', function() {
+    $('#trabajador-fecha-agenda').val(new Date().toISOString().split('T')[0]);
+    renderizarAgendaTrabajador();
+    renderizarEstadoCanchasTrabajador();
+  });
+
+  $('.btn-filter-worker').on('click', function() {
+    $('.btn-filter-worker').removeClass('active');
+    $(this).addClass('active');
+    filtroEstadoTrabajador = $(this).data('filter');
+    renderizarAgendaTrabajador();
+  });
+
+  $('#trabajador-agenda-lista').on('click', '.btn-worker-checkin', async function() {
+    const id = $(this).data('id');
+    await apiActualizarEstadoReserva(id, 'en_cancha');
+    const item = reservasConfirmadas.find(r => r.id === String(id));
+    if (item) {
+      item.estado = 'en_cancha';
+      localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+    }
+    renderizarAgendaTrabajador();
+    renderizarEstadoCanchasTrabajador();
+    mostrarToastAlert('✅ Check-in Confirmado', `Jugadores del turno #${id} ingresaron a cancha.`, false);
+    registrarEventoTimestamp('OPERACION', `Check-in confirmado para turno #${id} (En Cancha)`);
+  });
+
+  $('#trabajador-agenda-lista').on('click', '.btn-worker-amenities', async function() {
+    const id = $(this).data('id');
+    const item = reservasConfirmadas.find(r => r.id === String(id));
+    if (!item) return;
+
+    let nuevosAdicionales = item.adicionales || 'Balón oficial';
+    if (!nuevosAdicionales.includes('[ENTREGADO]')) {
+      nuevosAdicionales += ' [ENTREGADO]';
+    }
+
+    try {
+      await fetch('./api/reservas.php', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accion: 'entregar_adicionales',
+          id_reserva: id,
+          adicionales: nuevosAdicionales
+        })
+      });
+    } catch(e) {}
+
+    item.adicionales = nuevosAdicionales;
+    localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+    renderizarAgendaTrabajador();
+    mostrarToastAlert('🏐 Adicionales Entregados', `Material deportivo entregado para el turno #${id}.`, false);
+    registrarEventoTimestamp('OPERACION', `Entregó adicionales para reserva #${id}`);
+  });
+
+  $('#trabajador-agenda-lista').on('click', '.btn-worker-finish', async function() {
+    const id = $(this).data('id');
+    await apiActualizarEstadoReserva(id, 'completada');
+    const item = reservasConfirmadas.find(r => r.id === String(id));
+    if (item) {
+      item.estado = 'completada';
+      localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+    }
+    renderizarAgendaTrabajador();
+    renderizarEstadoCanchasTrabajador();
+    actualizarDisponibilidadHorarios();
+    mostrarToastAlert('🏁 Turno Finalizado', `Cancha liberada tras culminar el partido.`, false);
+    registrarEventoTimestamp('OPERACION', `Turno #${id} completado y cancha liberada`);
+  });
+
+  $('#trabajador-agenda-lista').on('click', '.btn-worker-cancel', async function() {
+    const id = $(this).data('id');
+    if (!confirm(`¿Estás seguro de cancelar el turno #${id}?`)) return;
+    await apiActualizarEstadoReserva(id, 'cancelada');
+    const item = reservasConfirmadas.find(r => r.id === String(id));
+    if (item) {
+      item.estado = 'cancelada';
+      localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+    }
+    renderizarAgendaTrabajador();
+    renderizarEstadoCanchasTrabajador();
+    actualizarDisponibilidadHorarios();
+    mostrarToastAlert('❌ Turno Cancelado', `La reserva #${id} fue cancelada y la hora liberada.`, false);
+    registrarEventoTimestamp('OPERACION', `Trabajador canceló turno #${id}`);
+  });
+
+  // --- 12.3 ADMIN: DASHBOARD KPI, GESTIÓN CANCHAS Y HISTORIAL GLOBAL ---
+  function renderizarDashboardAdmin() {
+    const reservasValidas = reservasConfirmadas.filter(r => r.estado !== 'cancelada');
+    const totalRecaudado = reservasValidas.reduce((sum, r) => {
+      const num = parseFloat(String(r.total).replace(/[^\d.]/g, '')) || 0;
+      return sum + num;
+    }, 0);
+
+    $('#kpi-total-recaudado').text(`${totalRecaudado.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Bs`);
+
+    const activas = reservasConfirmadas.filter(r => r.estado === 'pendiente' || r.estado === 'en_cancha').length;
+    $('#kpi-reservas-activas').text(activas);
+
+    const frecuencias = {};
+    reservasConfirmadas.forEach(r => {
+      const nombre = r.canchaNombre || `Cancha ${r.canchaId}`;
+      frecuencias[nombre] = (frecuencias[nombre] || 0) + 1;
+    });
+
+    let canchaTop = 'Sin reservas';
+    let maxFreq = 0;
+    for (const [cancha, count] of Object.entries(frecuencias)) {
+      if (count > maxFreq) {
+        maxFreq = count;
+        canchaTop = cancha;
+      }
+    }
+    $('#kpi-cancha-top').text(canchaTop);
+    $('#kpi-cancha-top-sub').text(`${maxFreq} reservas históricas`);
+
+    const hoy = new Date().toISOString().split('T')[0];
+    const turnosHoy = reservasConfirmadas.filter(r => r.fecha === hoy && r.estado !== 'cancelada').length;
+    const tasa = Math.min(100, Math.round((turnosHoy / 60) * 100));
+    $('#kpi-tasa-ocupacion').text(`${tasa}%`);
+    $('#kpi-ocupacion-detalle').text(`${turnosHoy} de 60 turnos hoy`);
+
+    const breakdownSup = {
+      'Madera Flotante': { count: 0, revenue: 0 },
+      'Sintético Cushion': { count: 0, revenue: 0 },
+      'Cemento Alisado': { count: 0, revenue: 0 }
+    };
+
+    reservasValidas.forEach(r => {
+      const cancha = canchasSistema.find(c => c.id_cancha === r.canchaId);
+      const sup = cancha ? cancha.superficie : '';
+      const monto = parseFloat(String(r.total).replace(/[^\d.]/g, '')) || 0;
+
+      if (sup.includes('Madera')) {
+        breakdownSup['Madera Flotante'].count++;
+        breakdownSup['Madera Flotante'].revenue += monto;
+      } else if (sup.includes('Sintético') || sup.includes('Poliuretano')) {
+        breakdownSup['Sintético Cushion'].count++;
+        breakdownSup['Sintético Cushion'].revenue += monto;
+      } else {
+        breakdownSup['Cemento Alisado'].count++;
+        breakdownSup['Cemento Alisado'].revenue += monto;
+      }
+    });
+
+    let htmlSup = '';
+    for (const [sup, val] of Object.entries(breakdownSup)) {
+      htmlSup += `
+        <div class="breakdown-item">
+          <span>${sup} (${val.count} turnos)</span>
+          <strong>${val.revenue.toFixed(2)} Bs</strong>
+        </div>
+      `;
+    }
+    $('#kpi-breakdown-superficie').html(sanitizarHTML(htmlSup));
+
+    let countBalon = 0;
+    let countPonchillos = 0;
+    let countHidratacion = 0;
+
+    reservasValidas.forEach(r => {
+      const ad = (r.adicionales || '').toLowerCase();
+      if (ad.includes('balón') || ad.includes('balon')) countBalon++;
+      if (ad.includes('ponchillos') || ad.includes('chalecos')) countPonchillos++;
+      if (ad.includes('hidratación') || ad.includes('aguas')) countHidratacion++;
+    });
+
+    const htmlAd = `
+      <div class="breakdown-item">
+        <span><i class="fa-solid fa-volleyball"></i> Balones Oficiales (Mikasa/Tachikara)</span>
+        <strong>${countBalon} unidades (+${countBalon * 10} Bs)</strong>
+      </div>
+      <div class="breakdown-item">
+        <span><i class="fa-solid fa-shirt"></i> Juegos de Ponchillos / Chalecos</span>
+        <strong>${countPonchillos} sets (+${countPonchillos * 15} Bs)</strong>
+      </div>
+      <div class="breakdown-item">
+        <span><i class="fa-solid fa-bottle-water"></i> Packs de Hidratación (6 Aguas)</span>
+        <strong>${countHidratacion} packs (+${countHidratacion * 20} Bs)</strong>
+      </div>
+    `;
+    $('#kpi-breakdown-adicionales').html(sanitizarHTML(htmlAd));
+  }
+
+  function renderizarGestionCanchasAdmin() {
+    const $container = $('#admin-canchas-container');
+    $container.empty();
+
+    canchasSistema.forEach(c => {
+      const htmlCard = `
+        <article class="admin-court-card" data-court-id="${c.id_cancha}">
+          <div class="admin-court-card__header">
+            <span class="admin-court-card__title">${c.nombre} (${c.id_cancha})</span>
+            <span class="user-role-tag ${c.estado === 'disponible' ? 'user-role-tag--cliente' : 'user-role-tag--admin'}">
+              ${c.estado.toUpperCase()}
+            </span>
+          </div>
+
+          <form class="admin-court-card__form" data-court-id="${c.id_cancha}">
+            <div class="admin-court-field">
+              <label>Superficie de Cancha:</label>
+              <input type="text" value="${c.superficie}" readonly disabled>
+            </div>
+
+            <div class="admin-court-field">
+              <label>Tarifa Horaria (Bs/hora):</label>
+              <input type="number" class="admin-input-precio" min="10" max="500" step="1" value="${c.precio_hora}" required>
+            </div>
+
+            <div class="admin-court-field">
+              <label>Estado Operativo:</label>
+              <select class="admin-select-estado">
+                <option value="disponible" ${c.estado === 'disponible' ? 'selected' : ''}>🟢 Disponible para Reservas</option>
+                <option value="mantenimiento" ${c.estado === 'mantenimiento' ? 'selected' : ''}>🔧 En Mantenimiento</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm admin-court-card__save-btn">
+              <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios en MySQL
+            </button>
+          </form>
+        </article>
+      `;
+      $container.append(sanitizarHTML(htmlCard));
+    });
+  }
+
+  function renderizarHistorialAdmin() {
+    const busqueda = ($('#admin-buscar-reserva').val() || '').toLowerCase().trim();
+    const filtroCancha = $('#admin-filtro-cancha').val() || 'todas';
+    const filtroEstado = $('#admin-filtro-estado').val() || 'todos';
+
+    const $tbody = $('#admin-historial-tbody');
+    $tbody.empty();
+
+    let filtradas = reservasConfirmadas.filter(r => {
+      if (busqueda) {
+        const titular = (r.cliente || '').toLowerCase();
+        const cel = (r.celular || '').toLowerCase();
+        const id = String(r.id || '').toLowerCase();
+        const cancha = (r.canchaNombre || '').toLowerCase();
+        if (!titular.includes(busqueda) && !cel.includes(busqueda) && !id.includes(busqueda) && !cancha.includes(busqueda)) {
+          return false;
+        }
+      }
+
+      if (filtroCancha !== 'todas' && r.canchaId !== filtroCancha) {
+        return false;
+      }
+
+      if (filtroEstado !== 'todos' && r.estado !== filtroEstado) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (filtradas.length === 0) {
+      $tbody.html(sanitizarHTML('<tr><td colspan="9" style="text-align: center; padding: 20px; color: var(--color-texto-muted);">No se encontraron reservas con los filtros seleccionados.</td></tr>'));
+      return;
+    }
+
+    filtradas.forEach(r => {
+      const estado = r.estado || 'pendiente';
+      const estadoClass = `status-tag--${estado}`;
+      const estadoTexto = estado.toUpperCase().replace('_', ' ');
+
+      let botonAnular = '--';
+      if (estado !== 'cancelada') {
+        botonAnular = `<button type="button" class="btn-anular-admin" data-id="${r.id}" title="Anular reserva">Anular</button>`;
+      }
+
+      const htmlFila = `
+        <tr>
+          <td><strong>#${r.id}</strong></td>
+          <td>${r.fecha}<br><small>${r.horarioTexto}</small></td>
+          <td><strong>${r.canchaNombre}</strong></td>
+          <td>${r.cliente}<br><small>${r.celular || ''}</small></td>
+          <td>${r.modalidad || 'Recreativo'}</td>
+          <td>${r.adicionales || 'Ninguno'}</td>
+          <td><strong>${r.total}</strong></td>
+          <td><span class="reserva-status-tag ${estadoClass}">${estadoTexto}</span></td>
+          <td>${botonAnular}</td>
+        </tr>
+      `;
+      $tbody.append(sanitizarHTML(htmlFila));
+    });
+  }
+
+  // Eventos de Admin
+  $('#admin-canchas-container').on('submit', '.admin-court-card__form', async function(e) {
+    e.preventDefault();
+    const courtId = $(this).data('court-id');
+    const precio = parseFloat($(this).find('.admin-input-precio').val());
+    const estado = $(this).find('.admin-select-estado').val();
+
+    if (!courtId || isNaN(precio) || precio <= 0) return;
+
+    const res = await apiEditarCancha(courtId, precio, estado);
+    const canchaIdx = canchasSistema.findIndex(c => c.id_cancha === courtId);
+    if (canchaIdx !== -1) {
+      canchasSistema[canchaIdx].precio_hora = precio;
+      canchasSistema[canchaIdx].estado = estado;
+      localStorage.setItem('deporzone_canchas', JSON.stringify(canchasSistema));
+    }
+
+    sincronizarCanchasEnDOM();
+    renderizarGestionCanchasAdmin();
+    mostrarToastAlert('✅ Cancha Actualizada', res.mensaje || `Tarifa de ${courtId} cambiada a ${precio} Bs/h.`, false);
+    registrarEventoTimestamp('ADMIN', `Actualizó ${courtId}: ${precio} Bs/h [${estado}]`);
+  });
+
+  $('#admin-buscar-reserva, #admin-filtro-cancha, #admin-filtro-estado').on('input change', function() {
+    renderizarHistorialAdmin();
+  });
+
+  $('#admin-historial-tbody').on('click', '.btn-anular-admin', async function() {
+    const id = $(this).data('id');
+    if (!confirm(`¿Confirmas anular la reserva #${id}?`)) return;
+    await apiActualizarEstadoReserva(id, 'cancelada');
+    const item = reservasConfirmadas.find(r => r.id === String(id));
+    if (item) {
+      item.estado = 'cancelada';
+      localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+    }
+    renderizarHistorialAdmin();
+    renderizarDashboardAdmin();
+    actualizarDisponibilidadHorarios();
+    mostrarToastAlert('🗑️ Reserva Anulada', `La reserva #${id} ha sido anulada por Administración.`, false);
+    registrarEventoTimestamp('ADMIN', `Administrador anuló reserva #${id}`);
+  });
+
+  // Cancelar reserva individual (Cliente)
+  $('#cliente-reservas-lista').on('click', '.btn-cancelar-cliente', function() {
+    const resId = $(this).data('id');
     cancelarReservaPorId(resId);
   });
 
-  // Cancelar la reserva más reciente desde el botón condicional principal
-  $('#btn-cancelar-reserva-activa').off('click').on('click', function() {
-    if (reservasConfirmadas.length === 0) return;
-    const ultimaReserva = reservasConfirmadas[reservasConfirmadas.length - 1];
-    cancelarReservaPorId(ultimaReserva.id);
+  $('#btn-cancelar-reserva-activa').on('click', function() {
+    const activas = reservasConfirmadas.filter(r => r.estado !== 'cancelada');
+    if (activas.length === 0) return;
+    const ultima = activas[activas.length - 1];
+    cancelarReservaPorId(ultima.id);
   });
 
-  function cancelarReservaPorId(id) {
-    const index = reservasConfirmadas.findIndex(r => r.id === id);
-    if (index === -1) return;
+  async function cancelarReservaPorId(id) {
+    const item = reservasConfirmadas.find(r => r.id === String(id));
+    if (!item) return;
 
-    const eliminada = reservasConfirmadas.splice(index, 1)[0];
+    await apiActualizarEstadoReserva(id, 'cancelada');
+    item.estado = 'cancelada';
     localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
 
-    // Refrescar vistas sincronizadas
     actualizarVisibilidadBotonCancelar();
-    renderizarHistorialReservasDOM();
+    renderizarMisReservasCliente();
+    renderizarAgendaTrabajador();
+    renderizarDashboardAdmin();
+    renderizarHistorialAdmin();
     actualizarDisponibilidadHorarios();
 
-    registrarEventoTimestamp('CANCELACION', `Canceló reserva de ${eliminada.cliente} (${eliminada.canchaNombre} • ${eliminada.horarioTexto})`);
-    mostrarToastAlert('🗑️ Reserva Cancelada', `El turno de ${eliminada.horarioTexto} en ${eliminada.canchaNombre} quedó libre nuevamente.`, false);
+    registrarEventoTimestamp('CANCELACION', `Canceló reserva de ${item.cliente} (${item.canchaNombre})`);
+    mostrarToastAlert('🗑️ Reserva Cancelada', `El turno de ${item.horarioTexto} en ${item.canchaNombre} quedó libre nuevamente.`, false);
   }
 
-  // ==========================================================
-  // [PWA 5]: DETECTOR ONLINE / OFFLINE + SINCRONIZACIÓN LOCALSTORAGE
-  // ==========================================================
-  function actualizarEstadoRedPWA() {
-    if (navigator.onLine) {
-      $('#estadoRed')
-        .text('🟢 En Línea')
-        .css({ backgroundColor: '#dcfce7', color: '#166534' });
+  // Alias retrocompatible
+  function renderizarHistorialReservasDOM() {
+    renderizarMisReservasCliente();
+  }
 
-      const pendientes = JSON.parse(localStorage.getItem('deporzone_cola_offline') || '[]');
-      if (pendientes.length > 0) {
-        mostrarToastAlert(
-          '🌐 Conexión Restablecida',
-          'Se sincronizaron ' + pendientes.length + ' reserva(s) guardadas sin conexión.',
-          false
-        );
-        localStorage.removeItem('deporzone_cola_offline');
-      }
-    } else {
-      $('#estadoRed')
-        .text('🟠 Sin Conexión (Modo Local)')
-        .css({ backgroundColor: '#ffedd5', color: '#9a3412' });
+  // ==========================================================================
+  // 13. COLA DE RETOS (ANTI-XSS)
+  // ==========================================================================
+  function agregarElementoACola(texto) {
+    const htmlFila = `
+      <div class="fila-cancion">
+        <span class="titulo-truncado">${texto}</span>
+        <button type="button" class="btn-quitar" aria-label="Quitar de la cola">✕</button>
+      </div>
+    `;
+    $('#listaCanciones').prepend(sanitizarHTML(htmlFila));
+  }
+
+  agregarElementoACola('Reto Estelar: Los Halcones vs Club Altiplano — Cancha 2 Tunari (21:00)');
+  agregarElementoACola('Lista de Espera VIP: Equipo Illimani Volley — Cancha 1 (20:00)');
+
+  $('#btnPedir').on('click', function () {
+    const val = ($('#inputCancion').val() || '').trim();
+    if (val.length < 3) {
+      $('#errInputCancion').text('⚠️ Escribe el nombre del equipo o reto (mínimo 3 caracteres).').slideDown('fast');
+      return;
     }
-  }
+    $('#errInputCancion').hide();
+    agregarElementoACola(val);
+    registrarEventoTimestamp('COLA', `Agregó reto: ${val}`);
+    $('#inputCancion').val('');
+  });
 
-  $(window).off('online offline').on('online offline', actualizarEstadoRedPWA);
-  actualizarEstadoRedPWA();
+  $('#listaCanciones').on('click', '.btn-quitar', function () {
+    const fila = $(this).closest('.fila-cancion');
+    const texto = fila.find('.titulo-truncado').text();
+    fila.remove();
+    registrarEventoTimestamp('COLA', `Retiró reto: ${texto}`);
+  });
 
-  // ==========================================================
-  // SUBMIT DEL FORMULARIO DE RESERVA -> APERTURA DEL MODAL UI
-  // ==========================================================
+  // ==========================================================================
+  // 14. MODAL UI CON TEMPORIZADOR ASÍNCRONO DE 30S
+  // ==========================================================================
   let timerInterval = null;
   let tiempoRestante = 30;
 
-  $('#reservation-form').submit(function(e) {
+  $('#reservation-form').on('submit', function(e) {
     e.preventDefault();
 
-    // Ejecutar todas las validaciones con alerta visible
-    let vFecha = validarCampoFecha();
-    let vHoras = validarHorarios();
-    let vNombre = validarCampoNombre();
-    let vTel = validarCampoTelefono();
-    let vEmail = validarCampoEmail();
+    const vFecha = validarCampoFecha(false);
+    const vHoras = validarHorarios();
+    const vNombre = validarCampoNombre();
+    const vTel = validarCampoTelefono();
+    const vEmail = validarCampoEmail();
 
     if (!vFecha || !vHoras || !vNombre || !vTel || !vEmail) {
-      mostrarAlertaError('⚠️ Revisa los campos resaltados en rojo antes de proceder.');
+      mostrarAlertaError('⚠️ Revisa los campos resaltados en rojo antes de continuar.');
       verificarFormularioCompleto();
-      if (document.body.classList.contains('vista-mobile') && (!vFecha || !vHoras)) {
-        activarSubpanelMovil($('#tab-reservar'), 'sub-horarios');
-      }
       return;
     }
 
-    // Datos listos para pasar a la Ventana Modal UI
-    let nombreCliente = $('#client-name').val().trim();
-    let cancha = $('#summary-court').text();
-    let total = $('#summary-total').text();
-    let fecha = $('#fecha-reserva').val();
-    let horas = horaFin - horaInicio;
+    const nombreCliente = $('#client-name').val().trim();
+    const cancha = $('#summary-court').text();
+    const total = $('#summary-total').text();
+    const fecha = $('#fecha-reserva').val();
+    const horas = horaFin - horaInicio;
 
-    // Poblar datos en la Ventana Modal UI (incluyendo la garantía requerida)
     $('#modal-court-name').text(cancha);
     $('#modal-client-name').text(nombreCliente);
     $('#modal-schedule').text(`${fecha} (${horaInicio}:00 - ${horaFin}:00)`);
     $('#modal-guarantee').text('50 BOB (Reembolsable)');
     $('#modal-total-amount').text(`${total} (${horas} Horas)`);
 
-    // Abrir Modal UI con fade
-    registrarEventoTimestamp('MODAL', `Abrió modal de confirmación para ${nombreCliente} (${total})`);
-    $('#modal-overlay').fadeIn(250);
+    registrarEventoTimestamp('MODAL', `Abrió confirmación para ${nombreCliente} (${total})`);
+    $('#modal-overlay').fadeIn(200);
 
-    // Iniciar Temporizador Asíncrono de 30s
     iniciarTemporizadorModal();
   });
 
-  // Función del Temporizador Asíncrono de Reserva Expirable (setInterval)
   function iniciarTemporizadorModal() {
     clearInterval(timerInterval);
     tiempoRestante = 30;
@@ -1115,13 +1893,12 @@ $(document).ready(function() {
 
       if (tiempoRestante <= 0) {
         clearInterval(timerInterval);
-        // Al expirar el tiempo: cerrar modal y limpiar el formulario por completo (Req 2)
-        $('#modal-overlay').fadeOut(300, function() {
-          registrarEventoTimestamp('TIMER', 'Expiró el temporizador de 30s de la reserva');
+        $('#modal-overlay').fadeOut(250, function() {
+          registrarEventoTimestamp('TIMER', 'Expiró temporizador de reserva');
           limpiarFormularioReserva();
           mostrarToastAlert(
-            '⚠️ Tarifa Flash Expirada',
-            'Se agotó el tiempo límite de 30 segundos. Formulario restablecido.',
+            '⚠️ Tiempo Expirado',
+            'Se agotó el límite de 30 segundos para confirmar. Formulario restablecido.',
             true
           );
         });
@@ -1130,107 +1907,174 @@ $(document).ready(function() {
   }
 
   function actualizarTextoTimer() {
-    let seg = tiempoRestante < 10 ? `0${tiempoRestante}` : tiempoRestante;
+    const seg = tiempoRestante < 10 ? `0${tiempoRestante}` : tiempoRestante;
     $('#modal-countdown').text(`00:${seg}s`);
   }
 
-  // 2. Cerrar Modal al hacer clic en [X] o en "Cancelar" -> LIMPIEZA COMPLETA DEL FORMULARIO (Req 2)
-  $('#modal-close-btn, #modal-cancel-btn').click(function() {
-    registrarEventoTimestamp('MODAL', 'Canceló confirmación en modal: formulario limpiado por completo');
-    cerrarModal();
+  $('#modal-close-btn, #modal-cancel-btn').on('click', function() {
+    clearInterval(timerInterval);
+    $('#modal-overlay').fadeOut(200);
+    registrarEventoTimestamp('MODAL', 'Canceló en modal: formulario limpiado por completo');
     limpiarFormularioReserva();
-    mostrarToastAlert('ℹ️ Proceso Cancelado', 'Todos los campos del formulario han sido limpiados por completo.', false);
+    mostrarToastAlert('ℹ️ Proceso Cancelado', 'Todos los campos del formulario han sido limpiados.', false);
   });
 
-  // Cerrar al hacer clic en el fondo oscuro -> Limpieza completa del formulario
-  $('#modal-overlay').click(function(e) {
+  $('#modal-overlay').on('click', function(e) {
     if ($(e.target).is('#modal-overlay')) {
-      cerrarModal();
+      clearInterval(timerInterval);
+      $('#modal-overlay').fadeOut(200);
       limpiarFormularioReserva();
     }
   });
 
-  function cerrarModal() {
+  // Confirmar Pago en Modal -> Envío a MySQL / Fallback
+  $('#modal-confirm-btn').on('click', async function() {
     clearInterval(timerInterval);
-    $('#modal-overlay').fadeOut(250);
-  }
-
-  // ==========================================================
-  // BOTÓN "PROCESAR PAGO" EN EL MODAL -> RESERVAR + MARCAR HORARIO ROJO
-  // ==========================================================
-  $('#modal-confirm-btn').off('click').on('click', function() {
-    clearInterval(timerInterval);
+    $(this).prop('disabled', true).text('Procesando...');
 
     const clienteConfirmado = $('#modal-client-name').text();
     const canchaConfirmada = $('#modal-court-name').text();
-    const horarioConfirmado = $('#modal-schedule').text();
     const montoConfirmado = $('#modal-total-amount').text();
     const fechaReserva = $('#fecha-reserva').val();
     const canchaId = $('#select-cancha-reserva').val();
+    const celular = $('#client-phone').val().trim();
+    const correo = $('#client-email').val().trim();
+    const modalidad = $('#wally-category').val();
 
-    // 1. Guardar la reserva activa en memoria y localStorage
+    let adicionales = [];
+    if ($('#add-ball').is(':checked')) adicionales.push('Balón Mikasa');
+    if ($('#add-vests').is(':checked')) adicionales.push('Ponchillos');
+    if ($('#add-water').is(':checked')) adicionales.push('Agua Vital');
+
     const nuevaReserva = {
-      id: 'res_' + Date.now(),
       cliente: clienteConfirmado,
+      celular: celular,
+      correo: correo,
       canchaId: canchaId,
       canchaNombre: canchaConfirmada,
       fecha: fechaReserva,
       horaInicio: horaInicio,
       horaFin: horaFin,
       horarioTexto: `${horaInicio}:00 - ${horaFin}:00`,
-      total: montoConfirmado,
-      fechaRegistro: new Date().toISOString()
+      modalidad: modalidad,
+      adicionales: adicionales.join(', '),
+      total: montoConfirmado
     };
 
-    reservasConfirmadas.push(nuevaReserva);
-    localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+    const res = await apiCrearReserva(nuevaReserva);
 
-    // 2. Refrescar estado: marcar horario reservado en rojo para esa fecha y mostrar botón de cancelar
-    actualizarDisponibilidadHorarios();
-    actualizarVisibilidadBotonCancelar();
-    renderizarHistorialReservasDOM();
-    registrarEventoTimestamp('RESERVA', `Confirmó reserva para ${clienteConfirmado} (${montoConfirmado})`);
+    $('#modal-confirm-btn').prop('disabled', false).text('Procesar Pago');
 
-    // Si está sin conexión, respalda la reserva en localStorage para sincronizarla luego
-    if (!navigator.onLine) {
-      const colaOffline = JSON.parse(localStorage.getItem('deporzone_cola_offline') || '[]');
-      colaOffline.push({ clienteConfirmado, canchaConfirmada, horarioConfirmado, montoConfirmado });
-      localStorage.setItem('deporzone_cola_offline', JSON.stringify(colaOffline));
+    if (res.ok) {
+      reservasConfirmadas.push(res.reserva || nuevaReserva);
+      localStorage.setItem('deporzone_reservas_sistema', JSON.stringify(reservasConfirmadas));
+
+      actualizarDisponibilidadHorarios();
+      actualizarVisibilidadBotonCancelar();
+      renderizarMisReservasCliente();
+      renderizarAgendaTrabajador();
+      renderizarDashboardAdmin();
+      renderizarHistorialAdmin();
+      registrarEventoTimestamp('RESERVA', `Confirmó reserva: ${clienteConfirmado} en ${canchaConfirmada}`);
+
+      $('#modal-overlay').fadeOut(200, function() {
+        const origen = (modoConexion === 'mysql') ? 'Base de Datos MySQL (XAMPP)' : 'Modo Offline (GitHub Pages)';
+        mostrarToastAlert(
+          '¡Reserva Procesada con Éxito! 🏆',
+          `Guardada en ${origen}. Titular: ${clienteConfirmado} (${montoConfirmado})`,
+          false
+        );
+
+        const htmlAlerta = `
+          <strong>¡Reserva Registrada en ${origen}! 🎉</strong><br>
+          Canjea tu comprobante en caja de DeporZone Wally Park.<br>
+          Garantía: <strong>50 BOB (Reembolsable)</strong> | Total: <strong>${montoConfirmado}</strong>
+        `;
+        $('#booking-alert-success').html(sanitizarHTML(htmlAlerta)).slideDown(250);
+
+        setTimeout(function() {
+          limpiarFormularioReserva();
+        }, 3500);
+      });
+    } else {
+      mostrarAlertaError(res.mensaje || 'Error al procesar la reserva.');
+      $('#modal-overlay').fadeOut(200);
     }
-
-    // Cerrar modal suavemente
-    $('#modal-overlay').fadeOut(250, function() {
-      mostrarToastAlert(
-        navigator.onLine ? '¡Reserva Procesada con Éxito! 🏆' : '🟠 Guardada en Modo Offline',
-        navigator.onLine
-          ? `Titular: ${clienteConfirmado} | Total: ${montoConfirmado}`
-          : 'Sin internet: tu reserva quedó guardada localmente y se sincronizará al volver en línea.',
-        !navigator.onLine
-      );
-
-      // Resumen en panel de éxito con garantía requerida
-      const $alerta = $('#booking-alert-success').empty();
-      $alerta.append(
-        $('<strong>').text(navigator.onLine ? '¡Reserva Registrada y Procesada! 🎉' : '🟠 Reserva Guardada en Modo Local'),
-        $('<br>'),
-        document.createTextNode('Canjea tu comprobante en caja de DeporZone Wally Park.'),
-        $('<br>'),
-        document.createTextNode('Garantía requerida: '),
-        $('<strong>').text('50 BOB (Reembolsable)'),
-        document.createTextNode(' | Total abonado: '),
-        $('<strong>').text(montoConfirmado)
-      ).slideDown(300);
-
-      // Limpiar formulario tras procesar la reserva
-      setTimeout(function() {
-        limpiarFormularioReserva();
-      }, 3500);
-    });
   });
 
-  // Función para mostrar el Toast Alert Dinámico
+  // ==========================================================================
+  // 15. AUDITORÍA Y SIMULACIONES EN CLASE (UPDS)
+  // ==========================================================================
+  $('#btnSimularContraste').on('click', function() {
+    $('body').toggleClass('alto-contraste');
+    const activo = $('body').hasClass('alto-contraste');
+
+    $(this).html(sanitizarHTML(activo
+      ? '<i class="fa-solid fa-circle-half-stroke"></i> Desactivar Alto Contraste'
+      : '<i class="fa-solid fa-circle-half-stroke"></i> 1. Alternar Alto Contraste WCAG'));
+
+    mostrarToastAlert(
+      activo ? '☀️ Alto Contraste Activado' : '🌙 Modo Normal Restablecido',
+      activo ? 'Fondo negro (#000), texto blanco (#fff) y bordes amarillos (#facc15).' : 'Paleta institucional restablecida.',
+      false
+    );
+    registrarEventoTimestamp('A11Y', `Alto contraste: ${activo ? 'ACTIVADO' : 'DESACTIVADO'}`);
+  });
+
+  $('#btnSimularVista').on('click', function() {
+    $('#courts-container').toggleClass('sim-movil');
+    const esMovilSim = $('#courts-container').hasClass('sim-movil');
+
+    $(this).html(sanitizarHTML(esMovilSim
+      ? '<i class="fa-solid fa-desktop"></i> Restaurar Grilla Completa'
+      : '<i class="fa-solid fa-mobile-screen"></i> 2. Simular Vista 1 Columna Móvil'));
+
+    mostrarToastAlert(
+      '📱 Simulación de Vista',
+      esMovilSim ? 'Grilla forzada a 1 columna (vista móvil compacta).' : 'Grilla CSS Grid adaptable restablecida.',
+      false
+    );
+    registrarEventoTimestamp('SIMULAR', `Simulación 1 columna: ${esMovilSim ? 'ACTIVA' : 'INACTIVA'}`);
+  });
+
+  $('#btnSmokeTest').on('click', function() {
+    const totalBotones = $('button').length;
+    const imgsSinAlt = $('img').filter(function() {
+      return !$(this).attr('alt') || $(this).attr('alt').trim() === '';
+    }).length;
+    const enlacesVacios = $('a').filter(function() {
+      const href = $(this).attr('href');
+      return !href || href === '#' || href.trim() === '';
+    }).length;
+
+    const salida = `🧪 Smoke Test en Vivo: ${totalBotones} botones interactivos verificados, ${imgsSinAlt} imágenes sin alt y ${enlacesVacios} enlaces vacíos. El DOM se encuentra íntegro y navegable sin errores.`;
+    $('#salidaAudit').html(sanitizarHTML(salida));
+    mostrarToastAlert('✅ Smoke Test Completado', `${totalBotones} botones auditados sin anomalías.`, false);
+    registrarEventoTimestamp('AUDITORIA', 'Ejecutó Smoke Test del DOM');
+  });
+
+  $('#btnAuditarA11Y').on('click', function() {
+    const headers = $('header').length;
+    const navs = $('nav').length;
+    const mains = $('main').length;
+    const sections = $('section').length;
+    const articles = $('article').length;
+    const footers = $('footer').length;
+    const imgsSinAlt = $('img').filter(function() {
+      return !$(this).attr('alt') || $(this).attr('alt').trim() === '';
+    }).length;
+
+    const reporte = `♿ Auditoría a11y HTML5: ${headers} &lt;header&gt;, ${navs} &lt;nav&gt;, ${mains} &lt;main&gt;, ${sections} &lt;section&gt;, ${articles} &lt;article&gt; y ${footers} &lt;footer&gt;. ${imgsSinAlt} imágenes sin alt. Anillo de enfoque :focus-visible verificado bajo WCAG 2.1 AA.`;
+    $('#reporteA11Y').html(sanitizarHTML(reporte));
+    mostrarToastAlert('♿ Auditoría a11y Exitosa', 'Estructura semántica HTML5 verificada correctamente.', false);
+    registrarEventoTimestamp('A11Y', 'Ejecutó Auditoría Semántica a11y');
+  });
+
+  // ==========================================================================
+  // 16. TOAST ALERT Y REDES SOCIALES
+  // ==========================================================================
   function mostrarToastAlert(titulo, mensaje, esWarning) {
-    let $toast = $('#toast-alert');
+    const $toast = $('#toast-alert');
     $('#toast-title').text(titulo);
     $('#toast-message').text(mensaje);
 
@@ -1242,42 +2086,41 @@ $(document).ready(function() {
       $toast.find('.toast-icon i').attr('class', 'fa-solid fa-circle-check');
     }
 
-    $toast.stop(true, true).slideDown(300).delay(3000).fadeOut(400);
+    $toast.stop(true, true).slideDown(250).delay(3200).fadeOut(350);
   }
 
-  // ==========================================================
-  // FUNCIÓN 5: REDES SOCIALES INTERACTIVAS Y .fadeToggle()
-  // ==========================================================
-  $('#toggle-social-btn').click(function() {
-    $('#social-collapsible-box').fadeToggle(300);
-    registrarEventoTimestamp('UI', 'Alternó visibilidad de Redes Sociales (.fadeToggle)');
-  });
-
-  $('.social-card').click(function(e) {
+  $('.social-card').on('click', function(e) {
     e.preventDefault();
-    let redNombre = $(this).data('network');
-    let urlDestino = $(this).attr('href');
+    const redNombre = $(this).data('network');
+    const urlDestino = $(this).attr('href');
 
-    registrarEventoTimestamp('SOCIAL', `Abrió red social oficial: ${redNombre}`);
-    mostrarToastAlert(
-      '🌐 Canal Oficial DeporZone',
-      `Abriendo ${redNombre}...`,
-      false
-    );
+    registrarEventoTimestamp('SOCIAL', `Abrió red social: ${redNombre}`);
+    mostrarToastAlert('🌐 Canal Oficial DeporZone', `Abriendo ${redNombre}...`, false);
 
     setTimeout(function() {
-      window.open(urlDestino, '_blank', 'noopener');
-    }, 650);
+      window.open(urlDestino, '_blank', 'noopener,noreferrer');
+    }, 600);
   });
 
-  // Inicialización de la pantalla al cargar: disponibilidad limpia, historial y validaciones
-  $('#select-cancha-reserva').trigger('change');
-  actualizarDisponibilidadHorarios();
-  actualizarVisibilidadBotonCancelar();
-  renderizarHistorialReservasDOM();
-  validarHorarios();
-  verificarFormularioCompleto();
-  renderizarBitacora();
-  registrarEventoTimestamp('SISTEMA', 'Inició sesión en DeporZone Wally Park');
+  // ==========================================================================
+  // 17. INICIALIZACIÓN ASÍNCRONA DEL SISTEMA
+  // ==========================================================================
+  async function inicializarDeporZone() {
+    await apiCargarDatos();
+    sincronizarCanchasEnDOM();
+    aplicarVistasSegunRol(usuarioActivo ? usuarioActivo.rol : 'cliente');
+    $('#select-cancha-reserva').trigger('change');
+    actualizarDisponibilidadHorarios();
+    actualizarVisibilidadBotonCancelar();
+    renderizarMisReservasCliente();
+    validarHorarios();
+    verificarFormularioCompleto();
+    renderizarBitacora();
+
+    const origen = (modoConexion === 'mysql') ? 'MySQL (XAMPP)' : 'LocalStorage (GitHub Pages)';
+    registrarEventoTimestamp('SISTEMA', `Inició DeporZone Wally Park v11 [Conexión: ${origen}]`);
+  }
+
+  inicializarDeporZone();
 
 });

@@ -4,729 +4,1225 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1e392a">
-  <meta name="description" content="DeporZone Wally Park — Complejo Deportivo de Wallybol con 6 canchas y soporte PWA Offline-First.">
-  <title>DeporZone Wally Park - Complejo Deportivo de Wallybol</title>
+  <meta name="theme-color" content="#064e3b">
+  <meta name="description" content="DeporZone Wally Park — Megacomplejo Deportivo de Wallybol con 6 canchas, reservas en MySQL (XAMPP), autenticación con roles y soporte PWA Offline-First.">
+  <title>DeporZone Wally Park — Megacomplejo Deportivo de Wallybol</title>
 
-  <!-- Redirección Automática Inmediata: Celulares y Tablets -> mobile.html -->
-  <script>
-    (function () {
-      try {
-        var params = new URLSearchParams(window.location.search);
-        var vistaParam = params.get('vista');
-        if (vistaParam === 'pc') {
-          sessionStorage.setItem('deporzone_vista', 'pc');
-          return;
-        }
-        if (sessionStorage.getItem('deporzone_vista') === 'pc') {
-          return;
-        }
-        var ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
-        var esMovilTabletUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet|silk|kindle/i.test(ua);
-        var esIPadOS = (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        var tieneTouch = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-        var ancho = Math.min(window.innerWidth || 9999, (window.screen && window.screen.width) || 9999);
-        var esMovilTablet = esMovilTabletUA || esIPadOS || (tieneTouch && ancho <= 1024);
-
-        if (esMovilTablet) {
-          window.location.replace('mobile.html' + window.location.search + window.location.hash);
-        }
-      } catch (e) {
-        console.error('Error en redirección automática:', e);
-      }
-    })();
-  </script>
-
-  <!-- Manifiesto PWA e ícono para instalación móvil -->
+  <!-- Manifiesto PWA e Iconos -->
   <link rel="manifest" href="manifest.json">
-  <!-- Enlace a la hoja de estilos CSS -->
-  <link rel="stylesheet" href="styles.css">
-  <!-- Font Awesome para iconos temáticos de deportes, interfaz y controles -->
+  
+  <!-- Hoja de Estilos CSS Adaptable Mobile-First (v11) -->
+  <link rel="stylesheet" href="styles.css?v=11">
+
+  <!-- Font Awesome para Iconografía Temática -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- DOMPurify para Sanitización y Seguridad Anti-XSS -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 </head>
 
 <body class="theme-light">
 
-  <!-- ==========================================
-       0. BANNER DE DETECCIÓN MÓVIL (VISTA CELULAR)
-       ========================================== -->
-  <div id="bannerDeteccionMovil" class="banner-deteccion-movil">
-    <span><i class="fa-solid fa-mobile-screen-button"></i> Dispositivo móvil detectado: prueba la vista compacta sin scroll.</span>
-    <a href="mobile.html?vista=mobile" class="btn-cambio-vista">📱 Abrir Vista Celular</a>
-  </div>
+  <!-- ==========================================================
+       CONTENEDOR PRINCIPAL RESPONSIVO (UN SOLO CÓDIGO BASE)
+       - Mobile Portrait: Layout en columna con dock inferior fijo
+       - Desktop / Landscape: Layout en fila con dock lateral izquierdo
+       ========================================================== -->
+  <div class="contenedor-app">
 
-  <!-- ==========================================
-       1. ENCABEZADO Y MENÚ HAMBURGUESA + MODO OSCURO/CLARO
-       ========================================== -->
-  <header id="main-header">
-    <div class="header-container">
-
-      <!-- Logotipo de la Entidad: DeporZone Wally Park -->
-      <div class="logo-box">
-        <span class="logo-icon"><i class="fa-solid fa-volleyball"></i></span>
-        <h1 class="brand-title">Depor<span>Zone</span> <small class="brand-sub">Wally Park</small></h1>
-        <!-- Indicador de Estado UI (Requerimiento Maquetación UI Viernes) -->
-        <div class="status-indicator-badge">
-          <span class="status-dot"></span>
-          <span class="status-text">Complejo Abierto</span>
+    <!-- BARRA DE NAVEGACIÓN Y ACCIONES (DOCK ADAPTABLE) -->
+    <nav class="dock-acciones" aria-label="Navegación principal de DeporZone">
+      
+      <!-- Marca en barra lateral (visible en desktop/landscape) -->
+      <div class="dock-acciones__brand">
+        <span class="dock-acciones__logo-icon"><i class="fa-solid fa-volleyball"></i></span>
+        <div class="dock-acciones__brand-text">
+          <span class="dock-acciones__title">Depor<span>Zone</span></span>
+          <span class="dock-acciones__subtitle">Wally Park</span>
         </div>
       </div>
 
-      <!-- Barra de navegación con Menú Hamburguesa -->
-      <nav id="navbar" class="nav-menu">
-        <ul class="nav-links">
-          <li><a href="#hero-section" class="nav-link active"><i class="fa-solid fa-house"></i> Inicio</a></li>
-          <li><a href="#filter-section" class="nav-link"><i class="fa-solid fa-filter"></i> Nuestras Canchas</a></li>
-          <li><a href="#booking-section" class="nav-link"><i class="fa-solid fa-calendar-check"></i> Reservar Turno</a>
-          </li>
-          <li><a href="#event-log-section" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i> Bitácora Timestamp</a></li>
-          <li><a href="#rules-section" class="nav-link"><i class="fa-solid fa-book-open"></i> Reglamento</a></li>
-          <li><a href="#social-section" class="nav-link"><i class="fa-solid fa-share-nodes"></i> Redes Sociales</a></li>
-          <li><a href="#contact-section" class="nav-link"><i class="fa-solid fa-map-location-dot"></i> Complejo
-              Central</a></li>
-          <li><a href="mobile.html?vista=mobile" class="nav-link"><i class="fa-solid fa-mobile-screen-button"></i> Vista Celular</a></li>
-        </ul>
-      </nav>
+      <!-- Enlaces / Pestañas principales segmentadas por Rol (RBAC) -->
+      <div class="dock-acciones__items" role="tablist">
+        <!-- ROL CLIENTE -->
+        <button type="button" class="dock-acciones__btn active" data-tab="tab-inicio" data-roles="cliente" role="tab" aria-selected="true" aria-label="Ir a Inicio y Portada">
+          <i class="fa-solid fa-house"></i>
+          <span>Inicio</span>
+        </button>
+        <button type="button" class="dock-acciones__btn" data-tab="tab-canchas" data-roles="cliente" role="tab" aria-selected="false" aria-label="Ir al Catálogo de Canchas">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Canchas</span>
+        </button>
+        <button type="button" class="dock-acciones__btn" data-tab="tab-reservar" data-roles="cliente" role="tab" aria-selected="false" aria-label="Ir al Sistema de Reservas">
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>Reservar</span>
+        </button>
+        <button type="button" class="dock-acciones__btn" data-tab="tab-mis-reservas" data-roles="cliente" role="tab" aria-selected="false" aria-label="Ir a Mis Reservas">
+          <i class="fa-solid fa-receipt"></i>
+          <span>Mis Reservas</span>
+        </button>
 
-      <!-- Acciones de cabecera: Estado Red PWA, Vista Celular, Modo Oscuro/Claro e Hidratación SSR -->
-      <div id="contenedorMenu" class="header-actions" data-hidratado="false">
-        <span id="estadoRed" class="estado-red-badge">🟢 En Línea</span>
-        <a href="mobile.html?vista=mobile" class="btn-cambio-vista" title="Cambiar a Vista Celular">📱 Vista Celular</a>
-        <!-- Función: Modo Oscuro / Claro -->
-        <button id="theme-toggle-btn" class="action-btn theme-btn btn-hidratable" data-hidratado="false" aria-label="Cambiar tema claro/oscuro"
-          title="Cambiar tema claro/oscuro">
+        <!-- ROL TRABAJADOR -->
+        <button type="button" class="dock-acciones__btn" data-tab="tab-trabajador-agenda" data-roles="trabajador" role="tab" aria-selected="false" aria-label="Ir a Agenda Operativa del Día" style="display: none;">
+          <i class="fa-solid fa-clipboard-list"></i>
+          <span>Agenda del Día</span>
+        </button>
+        <button type="button" class="dock-acciones__btn" data-tab="tab-trabajador-canchas" data-roles="trabajador" role="tab" aria-selected="false" aria-label="Ir a Estado de Canchas en Vivo" style="display: none;">
+          <i class="fa-solid fa-table-cells-large"></i>
+          <span>Estado Canchas</span>
+        </button>
+
+        <!-- ROL ADMIN -->
+        <button type="button" class="dock-acciones__btn" data-tab="tab-admin-kpi" data-roles="admin" role="tab" aria-selected="false" aria-label="Ir a Dashboard de Rendimiento Gerencial" style="display: none;">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard KPI</span>
+        </button>
+        <button type="button" class="dock-acciones__btn" data-tab="tab-admin-canchas" data-roles="admin" role="tab" aria-selected="false" aria-label="Ir a Gestión de Canchas y Tarifas" style="display: none;">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Gestión Canchas</span>
+        </button>
+        <button type="button" class="dock-acciones__btn" data-tab="tab-admin-historial" data-roles="admin" role="tab" aria-selected="false" aria-label="Ir al Historial Global de Reservas" style="display: none;">
+          <i class="fa-solid fa-table-list"></i>
+          <span>Historial Global</span>
+        </button>
+
+        <!-- AUDITORÍA (COMPARTIDA EN LOS 3 ROLES) -->
+        <button type="button" class="dock-acciones__btn" data-tab="tab-info" data-roles="cliente trabajador admin" role="tab" aria-selected="false" aria-label="Ir a Auditoría y Simulaciones UPDS">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <span>Auditoría</span>
+        </button>
+      </div>
+
+      <!-- Pie del dock (acciones de estado, login, tema e instalación PWA) -->
+      <div class="dock-acciones__footer">
+        
+        <!-- Control de Autenticación en Dock (Desktop) -->
+        <div class="auth-dock-box">
+          <button type="button" id="btnAbrirLoginDock" class="btn btn-login-trigger" style="width: 100%;">
+            <i class="fa-solid fa-right-to-bracket"></i> <span>Iniciar Sesión</span>
+          </button>
+          <div id="userProfileBadgeDock" class="user-profile-badge" style="display: none; width: 100%;">
+            <span class="user-avatar-icon"><i class="fa-solid fa-user-circle"></i></span>
+            <div class="user-info-text">
+              <strong id="userDisplayNameDock">Usuario</strong>
+              <span id="userRoleBadgeDock" class="user-role-tag">Cliente</span>
+            </div>
+            <button type="button" id="btnCerrarSesionDock" class="btn-logout" aria-label="Cerrar sesión" title="Cerrar sesión">
+              <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+          </div>
+        </div>
+
+        <span id="estadoRed" class="estado-red-badge" role="status">🟢 En Línea</span>
+        <button type="button" id="theme-toggle-btn" class="action-btn theme-btn" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema claro / oscuro">
           <i class="fa-solid fa-moon icon-moon"></i>
           <i class="fa-solid fa-sun icon-sun" style="display: none;"></i>
         </button>
-
-        <!-- Función: Botón Menú Hamburguesa -->
-        <button id="hamburger-btn" class="action-btn hamburger-btn btn-hidratable" data-hidratado="false" aria-label="Abrir menú de navegación">
-          <span class="bar bar-1"></span>
-          <span class="bar bar-2"></span>
-          <span class="bar bar-3"></span>
+        <button type="button" id="btnInstalarPWA" class="btn-instalar-pwa" hidden aria-label="Instalar DeporZone en tu dispositivo">
+          <i class="fa-solid fa-download"></i> Instalar App
         </button>
       </div>
 
-    </div>
-  </header>
+    </nav>
 
-  <!-- ==========================================
-       SECCIÓN HERO / PRESENTACIÓN WALLY PARK
-       ========================================== -->
-  <section id="hero-section" class="hero-section">
-    <div class="hero-content">
-      <span class="hero-badge"><i class="fa-solid fa-location-dot"></i> Un solo megacomplejo deportivo: 6 canchas bajo
-        el mismo techo</span>
-      <h2>DeporZone Wally Park: El Templo del Wallybol</h2>
-      <p>Todas nuestras 6 canchas de wally se encuentran en un solo predio centralizado con vestuarios, graderías, área
-        de descanso, churrasquera y cafetería deportiva. ¡Elige tu superficie favorita y asegura tu turno!</p>
-      <div class="hero-actions">
-        <a href="#filter-section" class="btn btn-primary"><i class="fa-solid fa-layer-group"></i> Ver Canchas del
-          Complejo</a>
-        <a href="#booking-section" class="btn btn-secondary"><i class="fa-solid fa-clock"></i> Reservar Ahora</a>
-      </div>
-    </div>
-  </section>
+    <!-- ÁREA DE CONTENIDO DINÁMICO -->
+    <div class="area-contenido">
 
-  <!-- ==========================================
-       2. SECCIÓN DE FILTRADOS POR TIPOS Y SUBTIPOS DE WALLY
-       ========================================== -->
-  <section id="filter-section" class="filter-section container">
-    <div class="section-header">
-      <h3><i class="fa-solid fa-filter"></i> Canchas Disponibles en Wally Park</h3>
-      <p>Filtra por <strong>Tipo de Superficie</strong> y <strong>Subtipo de Sala / Ambiente</strong> dentro de nuestras
-        instalaciones.</p>
-      
-      <!-- Pestaña Acordeón para Plegar / Desplegar Catálogo -->
-      <button type="button" id="toggle-catalog-btn" class="accordion-toggle-btn btn-hidratable" data-hidratado="false" aria-expanded="true">
-        <span class="toggle-text"><i class="fa-solid fa-eye-slash"></i> Ocultar Catálogo de Canchas</span>
-        <i class="fa-solid fa-chevron-up toggle-icon"></i>
-      </button>
-    </div>
-
-    <!-- Contenedor Plegable del Catálogo (Filtros + Grilla de Tarjetas) -->
-    <div id="catalog-collapsible-wrapper" class="catalog-collapsible-content">
-
-      <!-- Controles de Filtros -->
-      <div class="filter-controls-card">
-
-      <!-- Buscador en vivo con evento keyup -->
-      <div class="filter-group">
-        <label class="filter-title" for="searchCancha"><i class="fa-solid fa-magnifying-glass"></i> Buscador en Vivo de Canchas:</label>
-        <input type="text" id="searchCancha" class="search-cancha-input" placeholder="Ej: Illimani, Madera, Gradería, Económica...">
-      </div>
-
-      <!-- Filtro Tipo Principal: Tipo de Piso de Wally -->
-      <div class="filter-group">
-        <label class="filter-title"><i class="fa-solid fa-layer-group"></i> 1. Tipo de Superficie:</label>
-        <div class="filter-buttons-wrapper" id="type-filter-buttons">
-          <button class="filter-btn type-btn btn-hidratable active" data-hidratado="false" data-type="all">Todas las superficies</button>
-          <button class="filter-btn type-btn btn-hidratable" data-hidratado="false" data-type="madera"><i class="fa-solid fa-border-all"></i> Tabloncillo de
-            Madera</button>
-          <button class="filter-btn type-btn btn-hidratable" data-hidratado="false" data-type="sintetico"><i class="fa-solid fa-grip"></i> Goma /
-            Poliuretano</button>
-          <button class="filter-btn type-btn btn-hidratable" data-hidratado="false" data-type="cemento-pulido"><i class="fa-solid fa-square"></i> Cemento
-            Alisado</button>
-        </div>
-      </div>
-
-      <!-- Filtro Subtipo: Categoría / Tipo de Sala -->
-      <div class="filter-group">
-        <label class="filter-title"><i class="fa-solid fa-sliders"></i> 2. Subtipo de Ambiente y Categoría:</label>
-        <div class="filter-buttons-wrapper" id="subtype-filter-buttons">
-          <button class="filter-btn subtype-btn btn-hidratable active" data-hidratado="false" data-subtype="all">Todos los ambientes</button>
-          <button class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="vip"><i class="fa-solid fa-crown"></i> Box VIP
-            Climatizado</button>
-          <button class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="oficial"><i class="fa-solid fa-medal"></i> Torneo
-            Reglamentario</button>
-          <button class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="graderia"><i class="fa-solid fa-users"></i> Con Gradería
-            / Espectadores</button>
-          <button class="filter-btn subtype-btn btn-hidratable" data-hidratado="false" data-subtype="economica"><i class="fa-solid fa-tag"></i> Tarifa
-            Económica</button>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Grilla de Tarjetas de Canchas de Wally Park -->
-    <div class="courts-grid" id="courts-container">
-
-      <!-- Cancha 1: Tabloncillo Madera - VIP Climatizada -->
-      <article class="court-card" data-type="madera" data-subtype="vip oficial">
-        <div class="court-badge badge-vip">VIP • Tabloncillo</div>
-        <img
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSynNVw4Pknx8IKiuVaS049pU2kDSclZXIe0WyWRkcCuNel-coOWjTVBzOW&s=10"
-          alt="Cancha 1 Illimani VIP Madera Flotante" class="court-img" loading="lazy">
-        <div class="court-info">
-          <h4>Cancha 1: "Illimani VIP" (Madera Flotante)</h4>
-          <p class="court-desc">Piso de parquet flotante barnizado de alto brillo y amortiguación de impacto. Equipada
-            con aire acondicionado, luces LED empotradas y paredes de rebote acústico.</p>
-          <div class="court-tags">
-            <span class="tag"><i class="fa-solid fa-border-all"></i> Tabloncillo Roble</span>
-            <span class="tag"><i class="fa-solid fa-snowflake"></i> Climatizada</span>
-            <span class="tag"><i class="fa-solid fa-shower"></i> Vestuario VIP</span>
-          </div>
-          <div class="court-price-row">
-            <span class="price-val">80 Bs <span>/ hora</span></span>
-            <button class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-1"
-              data-court-name="Cancha 1: Illimani VIP (Madera)" data-court-price="80">Seleccionar</button>
+      <!-- CABECERA SUPERIOR (HEADER COMPACTO) -->
+      <header class="app-header">
+        <div class="app-header__brand">
+          <span class="app-header__icon"><i class="fa-solid fa-volleyball"></i></span>
+          <h1 class="app-header__title">Depor<span>Zone</span> <small>Wally Park</small></h1>
+          <div class="status-indicator-badge">
+            <span class="status-dot"></span>
+            <span class="status-text">Complejo Abierto</span>
           </div>
         </div>
-      </article>
 
-      <!-- Cancha 2: Madera - Torneo Oficial con Gradería -->
-      <article class="court-card" data-type="madera" data-subtype="oficial graderia">
-        <div class="court-badge">Oficial • Gradería</div>
-        <img
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSY-D-_HsZdhlada8GdwfrBZOoO-czCgP3cNS3w-rJMGUQNea6ttR6maow&s=10"
-          alt="Cancha 2 Tunari Master Reglamentaria con Graderia" class="court-img" loading="lazy">
-        <div class="court-info">
-          <h4>Cancha 2: "Tunari Master" (Reglamentaria)</h4>
-          <p class="court-desc">Diseñada bajo estándares federativos bolivianos con gradería superior para espectadores.
-            Tabloncillo con demarcación de líneas y red profesional tensada con cremallera.</p>
-          <div class="court-tags">
-            <span class="tag"><i class="fa-solid fa-users"></i> Graderías 40 pers.</span>
-            <span class="tag"><i class="fa-solid fa-ruler-combined"></i> 9.5 x 4.5m Oficial</span>
-            <span class="tag"><i class="fa-solid fa-tv"></i> Marcador Electrónico</span>
-          </div>
-          <div class="court-price-row">
-            <span class="price-val">70 Bs <span>/ hora</span></span>
-            <button class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-2"
-              data-court-name="Cancha 2: Tunari Master (Reglamentaria)" data-court-price="70">Seleccionar</button>
-          </div>
-        </div>
-      </article>
-
-      <!-- Cancha 3: Sintético Goma - VIP Confort -->
-      <article class="court-card" data-type="sintetico" data-subtype="vip">
-        <div class="court-badge badge-vip">VIP • Sintético Premium</div>
-        <img
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR8dFA2av4-Q3eQb_bnJjGCfuRhlub9YlY28jzLx2KG3zCNkglGAOrppY5f&s=10"
-          alt="Cancha 3 Urkupiña Club Sintético Premium" class="court-img" loading="lazy">
-        <div class="court-info">
-          <h4>Cancha 3: "Urkupiña Club" (Sintético Premium)</h4>
-          <p class="court-desc">Piso sintético deportivo con elastómero absorbente y recubrimiento antideslizante para
-            giros rápidos sin patinar. Sala de descanso integrada con sillones confortables.</p>
-          <div class="court-tags">
-            <span class="tag"><i class="fa-solid fa-grip"></i> Goma 8mm Cushion</span>
-            <span class="tag"><i class="fa-solid fa-wind"></i> Aire y Extractores</span>
-            <span class="tag"><i class="fa-solid fa-couch"></i> Lounge Privado</span>
-          </div>
-          <div class="court-price-row">
-            <span class="price-val">75 Bs <span>/ hora</span></span>
-            <button class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-3"
-              data-court-name="Cancha 3: Urkupiña Club (Sintético)" data-court-price="75">Seleccionar</button>
-          </div>
-        </div>
-      </article>
-
-      <!-- Cancha 4: Sintético Poliuretano - Oficial Torneo -->
-      <article class="court-card" data-type="sintetico" data-subtype="oficial">
-        <div class="court-badge">Oficial • Poliuretano</div>
-        <img
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSK_9xtRNoisAcIvirAhiOFM_02TrD8qeoyGxFwsMMCPq7J1_pVNmPYeK0&s=10"
-          alt="Cancha 4 La Cancha Pro Poliuretano Deportivo" class="court-img" loading="lazy">
-        <div class="court-info">
-          <h4>Cancha 4: "La Cancha Pro" (Poliuretano)</h4>
-          <p class="court-desc">Piso multicapa de resina de poliuretano continuo sin juntas ni uniones. Paredes tratadas
-            con esmalte especial para rebotes secos, veloces y predecibles.</p>
-          <div class="court-tags">
-            <span class="tag"><i class="fa-solid fa-arrows-up-down"></i> Altura Red Variable</span>
-            <span class="tag"><i class="fa-solid fa-lightbulb"></i> Iluminación Antirreflejo</span>
-            <span class="tag"><i class="fa-solid fa-shield-halved"></i> Alta Resistencia</span>
-          </div>
-          <div class="court-price-row">
-            <span class="price-val">65 Bs <span>/ hora</span></span>
-            <button class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-4"
-              data-court-name="Cancha 4: La Cancha Pro (Poliuretano)" data-court-price="65">Seleccionar</button>
-          </div>
-        </div>
-      </article>
-
-      <!-- Cancha 5: Cemento Alisado - Clásica Económica -->
-      <article class="court-card" data-type="cemento-pulido" data-subtype="economica">
-        <div class="court-badge badge-eco">Económica • Cemento Alisado</div>
-        <img
-          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtam2NeQPRvJ76i_DmCtpmcY22bBLRPGZEMH-uvaRtZLDBxHAAcdyk7Qmg&s=10"
-          alt="Cancha 5 La Tradicional Cemento Alisado" class="court-img" loading="lazy">
-        <div class="court-info">
-          <h4>Cancha 5: "La Tradicional" (Cemento Alisado)</h4>
-          <p class="court-desc">El piso clásico de cemento alisado con sellador de alto tránsito de los wallys
-            bolivianos. Un juego dinámico, veloz y a un precio súper accesible para desafíos entre amigos.</p>
-          <div class="court-tags">
-            <span class="tag"><i class="fa-solid fa-square"></i> Cemento Tratado</span>
-            <span class="tag"><i class="fa-solid fa-bolt-lightning"></i> Rebote Ultrarrápido</span>
-            <span class="tag"><i class="fa-solid fa-coins"></i> Tarifa Económica</span>
-          </div>
-          <div class="court-price-row">
-            <span class="price-val">50 Bs <span>/ hora</span></span>
-            <button class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-5"
-              data-court-name="Cancha 5: La Tradicional (Cemento)" data-court-price="50">Seleccionar</button>
-          </div>
-        </div>
-      </article>
-
-      <!-- Cancha 6: Cemento Alisado - Con Gradería y Área Social -->
-      <article class="court-card" data-type="cemento-pulido" data-subtype="graderia economica">
-        <div class="court-badge badge-eco">Económica • Gradería Social</div>
-        <img src="https://pavipor.com/wp-content/uploads/2019/12/pavipor-pista-voleibol-17.jpg"
-          alt="Cancha 6 Tercer Tiempo Cemento con Graderia y Mesas" class="court-img" loading="lazy">
-        <div class="court-info">
-          <h4>Cancha 6: "Tercer Tiempo" (Cemento + Gradería)</h4>
-          <p class="court-desc">Piso de cemento pulido complementado con una cómoda gradería y balcón con vista directa
-            a la cancha y conexión al sector de mesas y refrigerios del complejo.</p>
-          <div class="court-tags">
-            <span class="tag"><i class="fa-solid fa-users"></i> Gradería Lateral</span>
-            <span class="tag"><i class="fa-solid fa-utensils"></i> Área de Mesas</span>
-            <span class="tag"><i class="fa-solid fa-beer-mug-empty"></i> Tercer Tiempo</span>
-          </div>
-          <div class="court-price-row">
-            <span class="price-val">55 Bs <span>/ hora</span></span>
-            <button class="btn btn-select-court btn-hidratable" data-hidratado="false" data-court-id="wally-6"
-              data-court-name="Cancha 6: Tercer Tiempo (Cemento)" data-court-price="55">Seleccionar</button>
-          </div>
-        </div>
-      </article>
-
-    </div>
-  </div>
-  </section>
-
-  <!-- ==========================================
-       3. SECCIÓN DE RESERVA: DISPONIBILIDAD Y FORMULARIO DE WALLY
-       ========================================== -->
-  <section id="booking-section" class="booking-section container">
-    <div class="section-header">
-      <h3><i class="fa-solid fa-calendar-days"></i> Reserva de Canchas en Wally Park</h3>
-      <p>Selecciona tu cancha dentro del complejo, escoge el turno en la grilla y llena el formulario de confirmación.</p>
-    </div>
-
-    <!-- 3. Botón condicional de cancelación de reserva activa (Solo visible si hay reservas activas) -->
-    <div id="seccionCancelarReserva" class="active-reservations-bar" style="display: none;">
-      <div class="active-res-info">
-        <i class="fa-solid fa-circle-check" style="color: #27ae60; font-size: 1.25rem;"></i>
-        <span>Tienes <strong id="cant-reservas-activas">0</strong> reserva(s) activa(s) en Wally Park.</span>
-      </div>
-      <button type="button" id="btn-cancelar-reserva-activa" class="btn-cancel-reservation">
-        <i class="fa-solid fa-calendar-xmark"></i> Cancelar Reserva Activa
-      </button>
-    </div>
-
-    <div class="booking-grid-wrapper">
-
-      <!-- Columna Izquierda: Selección de Horarios y Turnos Rápidos -->
-      <div class="booking-schedule-card">
-        <h4><i class="fa-solid fa-clock"></i> 1. Disponibilidad de Horarios</h4>
-        <p class="schedule-subtitle">Elige la fecha y haz clic en los bloques de turnos disponibles:</p>
-
-        <!-- Fecha de la Partida -->
-        <div class="form-row-single">
-          <label for="fecha-reserva">Fecha de la partida:</label>
-          <input type="date" id="fecha-reserva" name="fecha-reserva">
-          <span class="field-error" id="err-date" style="display: none;"></span>
-        </div>
-
-        <!-- Selector de Cancha de Wally Park -->
-        <div class="form-row-single">
-          <label for="select-cancha-reserva">Cancha de Wally:</label>
-          <select id="select-cancha-reserva">
-            <option value="wally-1" data-precio="80" selected>Cancha 1: Illimani VIP - Madera (80 Bs/h)</option>
-            <option value="wally-2" data-precio="70">Cancha 2: Tunari Master - Madera Oficial (70 Bs/h)</option>
-            <option value="wally-3" data-precio="75">Cancha 3: Urkupiña Club - Sintético VIP (75 Bs/h)</option>
-            <option value="wally-4" data-precio="65">Cancha 4: La Cancha Pro - Poliuretano (65 Bs/h)</option>
-            <option value="wally-5" data-precio="50">Cancha 5: La Tradicional - Cemento (50 Bs/h)</option>
-            <option value="wally-6" data-precio="55">Cancha 6: Tercer Tiempo - Cemento (55 Bs/h)</option>
-          </select>
-        </div>
-
-        <!-- Grilla Rápida de Turnos (Botones interactivos jQuery - Todos disponibles inicialmente) -->
-        <label class="schedule-block-title">Turnos en bloques de 1 hora:</label>
-        <div class="time-slots-grid" id="turnos-grid">
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="14" data-fin="15">14:00 - 15:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="15" data-fin="16">15:00 - 16:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="16" data-fin="17">16:00 - 17:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="17" data-fin="18">17:00 - 18:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="18" data-fin="19">18:00 - 19:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="19" data-fin="20">19:00 - 20:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="20" data-fin="21">20:00 - 21:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="21" data-fin="22">21:00 - 22:00</button>
-          <button type="button" class="btn-slot btn-hidratable" data-hidratado="false" data-inicio="22" data-fin="23">22:00 - 23:00</button>
-        </div>
-
-        <!-- Rango Continuo -->
-        <div class="custom-range-box">
-          <h5>O define un horario continuo personalizado:</h5>
-          <div class="range-inputs-group">
-            <div class="input-item">
-              <label for="select-inicio">Hora Inicio:</label>
-              <select id="select-inicio">
-                <option value="14">14:00</option>
-                <option value="15">15:00</option>
-                <option value="16">16:00</option>
-                <option value="17">17:00</option>
-                <option value="18">18:00</option>
-                <option value="19" selected>19:00</option>
-                <option value="20">20:00</option>
-                <option value="21">21:00</option>
-                <option value="22">22:00</option>
-              </select>
-            </div>
-            <div class="input-item">
-              <label for="select-fin">Hora Fin:</label>
-              <select id="select-fin">
-                <option value="15">15:00</option>
-                <option value="16">16:00</option>
-                <option value="17">17:00</option>
-                <option value="18">18:00</option>
-                <option value="19">19:00</option>
-                <option value="20" selected>20:00</option>
-                <option value="21">21:00</option>
-                <option value="22">22:00</option>
-                <option value="23">23:00</option>
-              </select>
-            </div>
-          </div>
-          <span class="field-error" id="err-hours" style="display: none; margin-top: 8px;"></span>
-        </div>
-
-      </div>
-
-      <!-- Columna Derecha: FORMULARIO DE RESERVA DE WALLY PARK -->
-      <div class="booking-form-card">
-        <h4><i class="fa-solid fa-file-invoice-dollar"></i> 2. Formulario del Titular</h4>
-        <p class="form-instructions">Ingresa tus datos para registrar y apartar la cancha en el sistema:</p>
-
-        <form id="reservation-form" action="#" method="POST">
-
-          <!-- Nombre y Apellidos -->
-          <div class="form-group">
-            <label for="client-name"><i class="fa-solid fa-user"></i> Nombre Completo:</label>
-            <input type="text" id="client-name" name="client-name" placeholder="Ej: Gabriel Ramos Cruz">
-            <span class="field-error" id="err-name" style="display: none;"></span>
-          </div>
-
-          <!-- Celular / WhatsApp -->
-          <div class="form-group">
-            <label for="client-phone"><i class="fa-solid fa-phone"></i> Celular / WhatsApp:</label>
-            <input type="tel" id="client-phone" name="client-phone" placeholder="Ej: 78854844">
-            <span class="field-error" id="err-phone" style="display: none;"></span>
-          </div>
-
-          <!-- Correo Electrónico -->
-          <div class="form-group">
-            <label for="client-email"><i class="fa-solid fa-envelope"></i> Correo Electrónico:</label>
-            <input type="email" id="client-email" name="client-email" placeholder="ejemplo@correo.com">
-            <span class="field-error" id="err-email" style="display: none;"></span>
-          </div>
-
-          <!-- Modalidad de Juego (Wallybol) -->
-          <div class="form-group">
-            <label for="wally-category"><i class="fa-solid fa-users-line"></i> Modalidad de Juego:</label>
-            <select id="wally-category" name="wally-category">
-              <option value="varones">Terna Varones (3 vs 3)</option>
-              <option value="damas">Terna Damas (3 vs 3)</option>
-              <option value="mixto">Terna Mixto (3 vs 3)</option>
-              <option value="cuartas">Cuartas Recreativo (4 vs 4)</option>
-            </select>
-          </div>
-
-          <!-- Método de Pago -->
-          <div class="form-group">
-            <label for="payment-method"><i class="fa-solid fa-credit-card"></i> Forma de Pago:</label>
-            <select id="payment-method" name="payment-method">
-              <option value="qr">Pago QR Simple (Banco / BNB / BCP / Fassil)</option>
-              <option value="tigo-money">Tigo Money</option>
-              <option value="efectivo">Efectivo en Caja de Recepción</option>
-              <option value="transferencia">Transferencia Bancaria</option>
-            </select>
-          </div>
-
-          <!-- Servicios Adicionales de Wally Park -->
-          <div class="form-group">
-            <label><i class="fa-solid fa-plus-circle"></i> Servicios Adicionales:</label>
-            <div class="checkboxes-wrapper">
-              <label class="checkbox-label">
-                <input type="checkbox" id="add-ball" name="add-ball" value="10"> Balón Oficial Tachikara/Mikasa (+10 Bs)
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="add-vests" name="add-vests" value="15"> Juego de Ponchillos/Chalecos (+15 Bs)
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" id="add-water" name="add-water" value="20"> Pack Hidratación (6 aguas Vital) (+20
-                Bs)
-              </label>
+        <div class="app-header__actions">
+          
+          <!-- Control de Autenticación / Perfil de Usuario en Header (Móvil y Escritorio) -->
+          <div class="auth-header-box">
+            <button type="button" id="btnAbrirLogin" class="btn btn-login-trigger" aria-label="Iniciar sesión con cuenta de DeporZone">
+              <i class="fa-solid fa-right-to-bracket"></i> <span>Iniciar Sesión</span>
+            </button>
+            <div id="userProfileBadge" class="user-profile-badge" style="display: none;">
+              <span class="user-avatar-icon"><i class="fa-solid fa-user-circle"></i></span>
+              <div class="user-info-text">
+                <strong id="userDisplayName">Usuario</strong>
+                <span id="userRoleBadge" class="user-role-tag">Cliente</span>
+              </div>
+              <button type="button" id="btnCerrarSesion" class="btn-logout" aria-label="Cerrar sesión" title="Cerrar sesión">
+                <i class="fa-solid fa-right-from-bracket"></i>
+              </button>
             </div>
           </div>
 
-          <!-- Observaciones / Requerimientos de Red -->
-          <div class="form-group">
-            <label for="client-notes"><i class="fa-solid fa-comment-dots"></i> Notas o altura de red requerida:</label>
-            <textarea id="client-notes" name="client-notes" rows="2"
-              placeholder="Ej: Red lista para categoría damas (2.24m)..."></textarea>
-          </div>
-
-          <!-- Resumen de Costo y Confirmación (Live jQuery Calculator) -->
-          <div class="reservation-summary-panel">
-            <div class="summary-line">
-              <span>Cancha seleccionada:</span>
-              <strong id="summary-court">Cancha 1: Illimani VIP (Madera)</strong>
-            </div>
-            <div class="summary-line">
-              <span>Horas reservadas:</span>
-              <strong id="summary-hours">1 Hora(s)</strong>
-            </div>
-            <div class="summary-line">
-              <span>Horario elegido:</span>
-              <strong id="summary-time">No asignado</strong>
-            </div>
-            <!-- Desglose de Garantía Requerida (Reembolsable al finalizar el turno) -->
-            <div class="summary-line">
-              <span>Garantía requerida (Reembolsable):</span>
-              <strong id="summary-guarantee">50 BOB</strong>
-            </div>
-            <div class="summary-line total-highlight">
-              <span>Total a Pagar (Cancha + Adicionales):</span>
-              <strong id="summary-total" class="total-amount">0 BOB</strong>
-            </div>
-          </div>
-
-          <!-- Alertas de respuesta para jQuery -->
-          <div id="booking-alert-error" class="alert-box error" style="display: none;"></div>
-          <div id="booking-alert-success" class="alert-box success" style="display: none;"></div>
-
-          <!-- Botón de Envío (inicia deshabilitado hasta validar) -->
-          <button type="submit" id="btn-submit-booking" class="btn btn-submit btn-disabled btn-hidratable" data-hidratado="false" disabled>
-            <i class="fa-solid fa-circle-check"></i> Confirmar y Reservar en Wally Park
+          <span id="estadoRedHeader" class="estado-red-badge" role="status">🟢 En Línea</span>
+          <button type="button" id="theme-toggle-btn-top" class="action-btn theme-btn" aria-label="Cambiar tema claro u oscuro">
+            <i class="fa-solid fa-moon icon-moon"></i>
+            <i class="fa-solid fa-sun icon-sun" style="display: none;"></i>
           </button>
-
-        </form>
-      </div>
-
-    </div>
-
-    <!-- ==========================================
-         3.1 COLA DE RETOS E HISTORIAL SANITIZADO ANTI-XSS
-         ========================================== -->
-    <div class="booking-extras-grid">
-      <div class="cola-karaoke">
-        <h4><i class="fa-solid fa-list-ol"></i> Cola de Retos y Espera de Cancha</h4>
-        <p class="schedule-subtitle">Anota tu equipo en espera con truncado seguro y botones táctiles de 44×44px:</p>
-        <div class="fila-inline-form">
-          <input type="text" id="inputCancion" placeholder="Ej: Los Halcones • Reto 21:00 en Cancha 2">
-          <button type="button" id="btnPedir" class="btn-tactil btn-hidratable" data-hidratado="false"><i class="fa-solid fa-plus"></i> Agregar</button>
+          <button type="button" id="btnInstalarPWATop" class="btn-instalar-pwa" hidden aria-label="Instalar Aplicación">
+            <i class="fa-solid fa-download"></i>
+          </button>
         </div>
-        <span class="field-error" id="errInputCancion" style="display: none; margin-bottom: 8px;"></span>
-        <div id="listaCanciones"></div>
-      </div>
+      </header>
 
-      <div class="booking-history-card">
-        <h4><i class="fa-solid fa-shield-halved"></i> Historial de Turnos Confirmados (Anti-XSS)</h4>
-        <p class="schedule-subtitle">Construcción segura en DOM con <code>.text()</code> sin inyección HTML:</p>
-        <ul id="listaReservas" class="lista-segura"></ul>
-      </div>
-    </div>
-  </section>
+      <!-- CONTENIDO PRINCIPAL ADAPTABLE -->
+      <main class="app-main">
 
-  <!-- ==========================================
-       3.5 SISTEMA DE EVENTOS Y BITÁCORA CON TIMESTAMP
-       ========================================== -->
-  <section id="event-log-section" class="event-log-section container">
-    <div class="section-header">
-      <h3><i class="fa-solid fa-clock-rotate-left"></i> Sistema de Eventos y Bitácora con Timestamp</h3>
-      <p>Monitoreo interactivo en tiempo real de todas las acciones en DeporZone Wally Park (`click`, `filter`, `change`, `blur`, `submit`).</p>
-      <div class="log-controls-bar">
-        <button type="button" id="toggle-log-btn" class="accordion-toggle-btn btn-hidratable" data-hidratado="false">
-          <i class="fa-solid fa-eye-slash"></i> <span>Ocultar / Mostrar Bitácora (fadeToggle)</span>
-        </button>
-        <button type="button" id="clear-log-btn" class="accordion-toggle-btn btn-clear-log btn-hidratable" data-hidratado="false">
-          <i class="fa-solid fa-trash-can"></i> Limpiar Historial
-        </button>
-      </div>
-    </div>
+        <!-- ==========================================
+             1. SECCIÓN INICIO Y COMPLEJO
+             ========================================== -->
+        <section id="tab-inicio" class="panel-tab active" data-roles="cliente" aria-labelledby="heading-inicio">
+          
+          <div class="hero-card">
+            <span class="hero-badge"><i class="fa-solid fa-database"></i> Conectado a MySQL (XAMPP) / PWA Offline</span>
+            <h2 id="heading-inicio" class="hero-title">DeporZone Wally Park</h2>
+            <p class="hero-desc">
+              El megacomplejo de wallybol más moderno de Bolivia. Contamos con 6 canchas bajo un solo techo en Av. América y Melchor Pérez: madera flotante, sintético cushion y cemento alisado con vestuarios VIP, cafetería y gestión de turnos sincronizada.
+            </p>
+            <div class="hero-cta-group">
+              <button type="button" class="btn btn-primary btn-go-tab" data-tab="tab-canchas">
+                <i class="fa-solid fa-layer-group"></i> Ver Catálogo de Canchas
+              </button>
+              <button type="button" class="btn btn-secondary btn-go-tab" data-tab="tab-reservar">
+                <i class="fa-solid fa-clock"></i> Reservar Horario Ahora
+              </button>
+            </div>
+          </div>
 
-    <div id="log-collapsible-box" class="filter-controls-card">
-      <div class="log-stats-row">
-        <div class="stat-badge">
-          <span>Eventos Registrados:</span>
-          <strong id="stat-total-events">0</strong>
+          <!-- Métricas y Estadísticas en 3 Bloques -->
+          <div class="stats-row">
+            <div class="stat-pill">
+              <strong>6 Canchas</strong>
+              <span>3 Superficies Profesionales</span>
+            </div>
+            <div class="stat-pill">
+              <strong>50–80 Bs/h</strong>
+              <span>Tarifas Claras y Flexibles</span>
+            </div>
+            <div class="stat-pill">
+              <strong>14:00–00:00</strong>
+              <span>Abierto de Lunes a Domingo</span>
+            </div>
+          </div>
+
+          <!-- Tarjetas Destacadas del Complejo Centralizado (Grid Responsivo) -->
+          <div class="complejo-grid">
+            <article class="complejo-card">
+              <div class="complejo-card__media">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSynNVw4Pknx8IKiuVaS049pU2kDSclZXIe0WyWRkcCuNel-coOWjTVBzOW&s=10"
+                  alt="Instalaciones del complejo deportivo DeporZone Wally Park" class="complejo-card__img" width="480" height="270" loading="lazy">
+              </div>
+              <div class="complejo-card__body">
+                <h3>Infraestructura de Primer Nivel</h3>
+                <p>Predio deportivo centralizado con vestuarios equipados con duchas de agua caliente, casilleros seguros y graderías techadas para torneos y desafíos.</p>
+                <div class="badge-list">
+                  <span class="badge-item"><i class="fa-solid fa-shower"></i> Vestuarios VIP</span>
+                  <span class="badge-item"><i class="fa-solid fa-users"></i> Graderías</span>
+                  <span class="badge-item"><i class="fa-solid fa-utensils"></i> Cafetería</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="complejo-card">
+              <div class="complejo-card__media">
+                <img src="https://pavipor.com/wp-content/uploads/2019/12/pavipor-pista-voleibol-17.jpg"
+                  alt="Tercer tiempo y zona de descanso social de Wally Park" class="complejo-card__img" width="480" height="270" loading="lazy">
+              </div>
+              <div class="complejo-card__body">
+                <h3>Tercer Tiempo y Lounge Privado</h3>
+                <p>Área de descanso y churrasquera para compartir con tu equipo tras finalizar la partida. Pantallas para marcadores y transmisión de partidos en vivo.</p>
+                <div class="badge-list">
+                  <span class="badge-item"><i class="fa-solid fa-fire"></i> Churrasquera</span>
+                  <span class="badge-item"><i class="fa-solid fa-couch"></i> Lounge</span>
+                  <span class="badge-item"><i class="fa-solid fa-wifi"></i> WiFi Libre</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             2. SECCIÓN CATÁLOGO DE CANCHAS Y FILTRADO
+             ========================================== -->
+        <section id="tab-canchas" class="panel-tab" data-roles="cliente" aria-labelledby="heading-canchas">
+          
+          <div class="section-header">
+            <h2 id="heading-canchas"><i class="fa-solid fa-filter"></i> Nuestras 6 Canchas de Wallybol</h2>
+            <p>Filtra por tipo de superficie, ambiente o busca por nombre en vivo.</p>
+            
+            <button type="button" id="toggle-catalog-btn" class="accordion-toggle-btn" aria-expanded="true">
+              <span class="toggle-text"><i class="fa-solid fa-eye-slash"></i> Ocultar Controles de Filtro</span>
+              <i class="fa-solid fa-chevron-up toggle-icon"></i>
+            </button>
+          </div>
+
+          <!-- Controles de Filtros Colapsables -->
+          <div id="catalog-collapsible-wrapper" class="filter-controls-card">
+            
+            <div class="filter-group">
+              <label for="searchCancha" class="filter-title"><i class="fa-solid fa-magnifying-glass"></i> Buscador en Vivo:</label>
+              <input type="text" id="searchCancha" class="search-cancha-input" placeholder="Ej: Illimani, Tunari, Madera, Sintético, Cemento...">
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-title"><i class="fa-solid fa-layer-group"></i> 1. Tipo de Superficie:</span>
+              <div class="filter-buttons-wrapper" id="type-filter-buttons">
+                <button type="button" class="filter-btn type-btn active" data-type="all">Todas las superficies</button>
+                <button type="button" class="filter-btn type-btn" data-type="madera"><i class="fa-solid fa-border-all"></i> Tabloncillo Madera</button>
+                <button type="button" class="filter-btn type-btn" data-type="sintetico"><i class="fa-solid fa-grip"></i> Goma / Poliuretano</button>
+                <button type="button" class="filter-btn type-btn" data-type="cemento-pulido"><i class="fa-solid fa-square"></i> Cemento Alisado</button>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-title"><i class="fa-solid fa-sliders"></i> 2. Subtipo y Ambiente:</span>
+              <div class="filter-buttons-wrapper" id="subtype-filter-buttons">
+                <button type="button" class="filter-btn subtype-btn active" data-subtype="all">Todos los ambientes</button>
+                <button type="button" class="filter-btn subtype-btn" data-subtype="vip"><i class="fa-solid fa-crown"></i> Box VIP Climatizado</button>
+                <button type="button" class="filter-btn subtype-btn" data-subtype="oficial"><i class="fa-solid fa-medal"></i> Torneo Reglamentario</button>
+                <button type="button" class="filter-btn subtype-btn" data-subtype="graderia"><i class="fa-solid fa-users"></i> Con Gradería</button>
+                <button type="button" class="filter-btn subtype-btn" data-subtype="economica"><i class="fa-solid fa-tag"></i> Tarifa Económica</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Grilla Responsiva de Canchas con CSS Grid repeat(auto-fit, minmax(240px, 1fr)) -->
+          <div class="courts-grid" id="courts-container">
+
+            <!-- Cancha 1: Madera VIP (C1) -->
+            <article class="cancha-card" data-cancha-id="C1" data-type="madera" data-subtype="vip oficial">
+              <span class="cancha-card__badge cancha-card__badge--vip">VIP • Tabloncillo</span>
+              <div class="cancha-card__imagen-wrap">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSynNVw4Pknx8IKiuVaS049pU2kDSclZXIe0WyWRkcCuNel-coOWjTVBzOW&s=10"
+                  alt="Cancha 1 Illimani VIP de tabloncillo de roble flotante" class="cancha-card__imagen" width="480" height="270" loading="lazy">
+              </div>
+              <div class="cancha-card__cuerpo">
+                <h4 class="cancha-card__titulo">Cancha 1: "Illimani VIP" (Madera Flotante)</h4>
+                <p class="cancha-card__desc">Piso de parquet flotante barnizado con absorción de impacto articular. Incluye aire acondicionado, luces LED antirreflejo y paredes acústicas.</p>
+                <div class="cancha-card__tags">
+                  <span class="cancha-card__tag"><i class="fa-solid fa-border-all"></i> Roble Flotante</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-snowflake"></i> Climatizada</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-shower"></i> Vestuario VIP</span>
+                </div>
+                <div class="cancha-card__pie">
+                  <div class="cancha-card__precio">
+                    <span class="cancha-card__precio-val" id="precio-card-C1">80 Bs</span>
+                    <span class="cancha-card__precio-tiempo">/ hora</span>
+                  </div>
+                  <div class="cancha-card__acciones">
+                    <button type="button" class="cancha-card__boton btn-admin-cancha" data-court-id="C1" style="display: none;" title="Editar tarifa o estado (Rol Admin)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button type="button" class="cancha-card__boton btn-simular" aria-label="Simular estado interactivo de Cancha 1">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Simular
+                    </button>
+                    <button type="button" class="cancha-card__boton cancha-card__boton--destacado btn-select-court"
+                      data-court-id="C1" data-court-name="Cancha 1: Illimani VIP (Madera)" data-court-price="80">
+                      Seleccionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- Cancha 2: Madera Reglamentaria (C2) -->
+            <article class="cancha-card" data-cancha-id="C2" data-type="madera" data-subtype="oficial graderia">
+              <span class="cancha-card__badge cancha-card__badge--oficial">Oficial • Gradería</span>
+              <div class="cancha-card__imagen-wrap">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSY-D-_HsZdhlada8GdwfrBZOoO-czCgP3cNS3w-rJMGUQNea6ttR6maow&s=10"
+                  alt="Cancha 2 Tunari Master reglamentaria con gradería" class="cancha-card__imagen" width="480" height="270" loading="lazy">
+              </div>
+              <div class="cancha-card__cuerpo">
+                <h4 class="cancha-card__titulo">Cancha 2: "Tunari Master" (Reglamentaria)</h4>
+                <p class="cancha-card__desc">Diseñada bajo medidas oficiales de la Federación Boliviana de Wallybol. Posee gradería superior para 40 personas y marcador digital programable.</p>
+                <div class="cancha-card__tags">
+                  <span class="cancha-card__tag"><i class="fa-solid fa-users"></i> Gradería 40 pers.</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-ruler-combined"></i> Medida Oficial</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-tv"></i> Marcador Digital</span>
+                </div>
+                <div class="cancha-card__pie">
+                  <div class="cancha-card__precio">
+                    <span class="cancha-card__precio-val" id="precio-card-C2">70 Bs</span>
+                    <span class="cancha-card__precio-tiempo">/ hora</span>
+                  </div>
+                  <div class="cancha-card__acciones">
+                    <button type="button" class="cancha-card__boton btn-admin-cancha" data-court-id="C2" style="display: none;" title="Editar tarifa o estado (Rol Admin)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button type="button" class="cancha-card__boton btn-simular" aria-label="Simular estado interactivo de Cancha 2">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Simular
+                    </button>
+                    <button type="button" class="cancha-card__boton cancha-card__boton--destacado btn-select-court"
+                      data-court-id="C2" data-court-name="Cancha 2: Tunari Master (Reglamentaria)" data-court-price="70">
+                      Seleccionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- Cancha 3: Sintético Cushion VIP (C3) -->
+            <article class="cancha-card" data-cancha-id="C3" data-type="sintetico" data-subtype="vip">
+              <span class="cancha-card__badge cancha-card__badge--vip">VIP • Sintético Cushion</span>
+              <div class="cancha-card__imagen-wrap">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR8dFA2av4-Q3eQb_bnJjGCfuRhlub9YlY28jzLx2KG3zCNkglGAOrppY5f&s=10"
+                  alt="Cancha 3 Urkupiña Club con piso sintético cushion" class="cancha-card__imagen" width="480" height="270" loading="lazy">
+              </div>
+              <div class="cancha-card__cuerpo">
+                <h4 class="cancha-card__titulo">Cancha 3: "Urkupiña Club" (Sintético VIP)</h4>
+                <p class="cancha-card__desc">Piso de goma sintética multicapa con elastómero cushion antideslizante para aceleraciones y paradas rápidas. Sala lounge contigua con vista.</p>
+                <div class="cancha-card__tags">
+                  <span class="cancha-card__tag"><i class="fa-solid fa-grip"></i> Goma Cushion 8mm</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-wind"></i> Extracción de Aire</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-couch"></i> Lounge Privado</span>
+                </div>
+                <div class="cancha-card__pie">
+                  <div class="cancha-card__precio">
+                    <span class="cancha-card__precio-val" id="precio-card-C3">75 Bs</span>
+                    <span class="cancha-card__precio-tiempo">/ hora</span>
+                  </div>
+                  <div class="cancha-card__acciones">
+                    <button type="button" class="cancha-card__boton btn-admin-cancha" data-court-id="C3" style="display: none;" title="Editar tarifa o estado (Rol Admin)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button type="button" class="cancha-card__boton btn-simular" aria-label="Simular estado interactivo de Cancha 3">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Simular
+                    </button>
+                    <button type="button" class="cancha-card__boton cancha-card__boton--destacado btn-select-court"
+                      data-court-id="C3" data-court-name="Cancha 3: Urkupiña Club (Sintético)" data-court-price="75">
+                      Seleccionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- Cancha 4: Poliuretano Oficial (C4) -->
+            <article class="cancha-card" data-cancha-id="C4" data-type="sintetico" data-subtype="oficial">
+              <span class="cancha-card__badge cancha-card__badge--oficial">Oficial • Poliuretano</span>
+              <div class="cancha-card__imagen-wrap">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSK_9xtRNoisAcIvirAhiOFM_02TrD8qeoyGxFwsMMCPq7J1_pVNmPYeK0&s=10"
+                  alt="Cancha 4 La Cancha Pro de poliuretano deportivo" class="cancha-card__imagen" width="480" height="270" loading="lazy">
+              </div>
+              <div class="cancha-card__cuerpo">
+                <h4 class="cancha-card__titulo">Cancha 4: "La Cancha Pro" (Poliuretano)</h4>
+                <p class="cancha-card__desc">Piso de resina de poliuretano continuo sin juntas ni desniveles. Paredes esmaltadas para rebote uniforme de balón oficial Tachikara.</p>
+                <div class="cancha-card__tags">
+                  <span class="cancha-card__tag"><i class="fa-solid fa-arrows-up-down"></i> Altura Red Variable</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-lightbulb"></i> Foco Antirreflejo</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-shield-halved"></i> Uso Intensivo</span>
+                </div>
+                <div class="cancha-card__pie">
+                  <div class="cancha-card__precio">
+                    <span class="cancha-card__precio-val" id="precio-card-C4">65 Bs</span>
+                    <span class="cancha-card__precio-tiempo">/ hora</span>
+                  </div>
+                  <div class="cancha-card__acciones">
+                    <button type="button" class="cancha-card__boton btn-admin-cancha" data-court-id="C4" style="display: none;" title="Editar tarifa o estado (Rol Admin)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button type="button" class="cancha-card__boton btn-simular" aria-label="Simular estado interactivo de Cancha 4">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Simular
+                    </button>
+                    <button type="button" class="cancha-card__boton cancha-card__boton--destacado btn-select-court"
+                      data-court-id="C4" data-court-name="Cancha 4: La Cancha Pro (Poliuretano)" data-court-price="65">
+                      Seleccionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- Cancha 5: Cemento Alisado Económica (C5) -->
+            <article class="cancha-card" data-cancha-id="C5" data-type="cemento-pulido" data-subtype="economica">
+              <span class="cancha-card__badge cancha-card__badge--eco">Económica • Cemento</span>
+              <div class="cancha-card__imagen-wrap">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtam2NeQPRvJ76i_DmCtpmcY22bBLRPGZEMH-uvaRtZLDBxHAAcdyk7Qmg&s=10"
+                  alt="Cancha 5 La Tradicional de cemento alisado" class="cancha-card__imagen" width="480" height="270" loading="lazy">
+              </div>
+              <div class="cancha-card__cuerpo">
+                <h4 class="cancha-card__titulo">Cancha 5: "La Tradicional" (Cemento Alisado)</h4>
+                <p class="cancha-card__desc">Piso clásico de cemento pulido con sellador de alto impacto. Partidas veloces, dinámicas y a una tarifa económica ideal para retos rápidos.</p>
+                <div class="cancha-card__tags">
+                  <span class="cancha-card__tag"><i class="fa-solid fa-square"></i> Cemento Tratado</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-bolt-lightning"></i> Rebote Rápido</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-coins"></i> Tarifa Económica</span>
+                </div>
+                <div class="cancha-card__pie">
+                  <div class="cancha-card__precio">
+                    <span class="cancha-card__precio-val" id="precio-card-C5">50 Bs</span>
+                    <span class="cancha-card__precio-tiempo">/ hora</span>
+                  </div>
+                  <div class="cancha-card__acciones">
+                    <button type="button" class="cancha-card__boton btn-admin-cancha" data-court-id="C5" style="display: none;" title="Editar tarifa o estado (Rol Admin)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button type="button" class="cancha-card__boton btn-simular" aria-label="Simular estado interactivo de Cancha 5">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Simular
+                    </button>
+                    <button type="button" class="cancha-card__boton cancha-card__boton--destacado btn-select-court"
+                      data-court-id="C5" data-court-name="Cancha 5: La Tradicional (Cemento)" data-court-price="50">
+                      Seleccionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- Cancha 6: Cemento + Gradería Social (C6) -->
+            <article class="cancha-card" data-cancha-id="C6" data-type="cemento-pulido" data-subtype="graderia economica">
+              <span class="cancha-card__badge cancha-card__badge--eco">Económica • Gradería</span>
+              <div class="cancha-card__imagen-wrap">
+                <img src="https://pavipor.com/wp-content/uploads/2019/12/pavipor-pista-voleibol-17.jpg"
+                  alt="Cancha 6 Tercer Tiempo de cemento con gradería" class="cancha-card__imagen" width="480" height="270" loading="lazy">
+              </div>
+              <div class="cancha-card__cuerpo">
+                <h4 class="cancha-card__titulo">Cancha 6: "Tercer Tiempo" (Cemento + Gradería)</h4>
+                <p class="cancha-card__desc">Piso de cemento pulido con balcón y gradería lateral. Conexión directa al área de mesas y refrigerios para el post-partido.</p>
+                <div class="cancha-card__tags">
+                  <span class="cancha-card__tag"><i class="fa-solid fa-users"></i> Gradería Lateral</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-utensils"></i> Área de Mesas</span>
+                  <span class="cancha-card__tag"><i class="fa-solid fa-beer-mug-empty"></i> Tercer Tiempo</span>
+                </div>
+                <div class="cancha-card__pie">
+                  <div class="cancha-card__precio">
+                    <span class="cancha-card__precio-val" id="precio-card-C6">55 Bs</span>
+                    <span class="cancha-card__precio-tiempo">/ hora</span>
+                  </div>
+                  <div class="cancha-card__acciones">
+                    <button type="button" class="cancha-card__boton btn-admin-cancha" data-court-id="C6" style="display: none;" title="Editar tarifa o estado (Rol Admin)">
+                      <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button type="button" class="cancha-card__boton btn-simular" aria-label="Simular estado interactivo de Cancha 6">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i> Simular
+                    </button>
+                    <button type="button" class="cancha-card__boton cancha-card__boton--destacado btn-select-court"
+                      data-court-id="C6" data-court-name="Cancha 6: Tercer Tiempo (Cemento)" data-court-price="55">
+                      Seleccionar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             3. SECCIÓN RESERVAS Y FORMULARIO (CLIENTE)
+             ========================================== -->
+        <section id="tab-reservar" class="panel-tab" data-roles="cliente" aria-labelledby="heading-reservar">
+          
+          <div class="section-header">
+            <h2 id="heading-reservar"><i class="fa-solid fa-calendar-days"></i> Reserva de Canchas en Wally Park</h2>
+            <p>Selecciona la fecha, el turno y completa los datos del titular para apartar tu cancha.</p>
+          </div>
+
+          <!-- Barra Condicional de Cancelación de Reserva Activa (solo si hay reservas) -->
+          <div id="seccionCancelarReserva" class="active-reservations-bar" style="display: none;">
+            <div class="active-res-info">
+              <i class="fa-solid fa-circle-check"></i>
+              <span>Tienes <strong id="cant-reservas-activas">0</strong> reserva(s) activa(s) en Wally Park.</span>
+            </div>
+            <button type="button" id="btn-cancelar-reserva-activa" class="btn-cancel-reservation">
+              <i class="fa-solid fa-calendar-xmark"></i> Cancelar Reserva Activa
+            </button>
+          </div>
+
+          <!-- Cuadrícula Principal de Reserva (2 Columnas en Desktop) -->
+          <div class="booking-grid-wrapper">
+
+            <!-- Columna 1: Disponibilidad y Selección de Turnos -->
+            <div class="booking-schedule-card">
+              <h3><i class="fa-solid fa-clock"></i> 1. Horarios y Disponibilidad</h3>
+              <p class="schedule-subtitle">Elige la fecha y haz clic en los bloques de turnos disponibles:</p>
+
+              <div class="form-row-single">
+                <label for="fecha-reserva">Fecha de la partida (máx. 30 días):</label>
+                <input type="date" id="fecha-reserva" name="fecha-reserva">
+                <span class="field-error" id="err-date" style="display: none;"></span>
+              </div>
+
+              <div class="form-row-single">
+                <label for="select-cancha-reserva">Cancha de Wally (C1 - C6):</label>
+                <select id="select-cancha-reserva">
+                  <option value="C1" data-precio="80" selected>Cancha 1: Illimani VIP - Madera (80 Bs/h)</option>
+                  <option value="C2" data-precio="70">Cancha 2: Tunari Master - Madera Oficial (70 Bs/h)</option>
+                  <option value="C3" data-precio="75">Cancha 3: Urkupiña Club - Sintético VIP (75 Bs/h)</option>
+                  <option value="C4" data-precio="65">Cancha 4: La Cancha Pro - Poliuretano (65 Bs/h)</option>
+                  <option value="C5" data-precio="50">Cancha 5: La Tradicional - Cemento (50 Bs/h)</option>
+                  <option value="C6" data-precio="55">Cancha 6: Tercer Tiempo - Cemento (55 Bs/h)</option>
+                </select>
+              </div>
+
+              <span class="schedule-block-title">Turnos en bloques de 1 hora:</span>
+              <div class="time-slots-grid" id="turnos-grid">
+                <button type="button" class="btn-slot" data-inicio="14" data-fin="15">14:00 - 15:00</button>
+                <button type="button" class="btn-slot" data-inicio="15" data-fin="16">15:00 - 16:00</button>
+                <button type="button" class="btn-slot" data-inicio="16" data-fin="17">16:00 - 17:00</button>
+                <button type="button" class="btn-slot" data-inicio="17" data-fin="18">17:00 - 18:00</button>
+                <button type="button" class="btn-slot" data-inicio="18" data-fin="19">18:00 - 19:00</button>
+                <button type="button" class="btn-slot" data-inicio="19" data-fin="20">19:00 - 20:00</button>
+                <button type="button" class="btn-slot" data-inicio="20" data-fin="21">20:00 - 21:00</button>
+                <button type="button" class="btn-slot" data-inicio="21" data-fin="22">21:00 - 22:00</button>
+                <button type="button" class="btn-slot" data-inicio="22" data-fin="23">22:00 - 23:00</button>
+              </div>
+
+              <!-- Rango Continuo Personalizado -->
+              <div class="custom-range-box">
+                <h4>O define un horario continuo personalizado:</h4>
+                <div class="range-inputs-group">
+                  <div class="input-item">
+                    <label for="select-inicio">Hora Inicio:</label>
+                    <select id="select-inicio">
+                      <option value="14">14:00</option>
+                      <option value="15">15:00</option>
+                      <option value="16">16:00</option>
+                      <option value="17">17:00</option>
+                      <option value="18">18:00</option>
+                      <option value="19" selected>19:00</option>
+                      <option value="20">20:00</option>
+                      <option value="21">21:00</option>
+                      <option value="22">22:00</option>
+                    </select>
+                  </div>
+                  <div class="input-item">
+                    <label for="select-fin">Hora Fin:</label>
+                    <select id="select-fin">
+                      <option value="15">15:00</option>
+                      <option value="16">16:00</option>
+                      <option value="17">17:00</option>
+                      <option value="18">18:00</option>
+                      <option value="19">19:00</option>
+                      <option value="20" selected>20:00</option>
+                      <option value="21">21:00</option>
+                      <option value="22">22:00</option>
+                      <option value="23">23:00</option>
+                    </select>
+                  </div>
+                </div>
+                <span class="field-error" id="err-hours" style="display: none; margin-top: 8px;"></span>
+              </div>
+
+            </div>
+
+            <!-- Columna 2: Formulario del Titular y Resumen -->
+            <div class="booking-form-card">
+              <h3><i class="fa-solid fa-file-invoice-dollar"></i> 2. Formulario del Titular</h3>
+              <p class="form-instructions">Ingresa tus datos legítimos para procesar la reserva:</p>
+
+              <form id="reservation-form" action="#" method="POST" novalidate>
+                
+                <!-- Nombre Completo con Validación Estricta -->
+                <div class="form-group">
+                  <label for="client-name"><i class="fa-solid fa-user"></i> Nombre Completo:</label>
+                  <input type="text" id="client-name" name="client-name" placeholder="Ej: Gabriel Ramos Cruz" autocomplete="name">
+                  <span class="field-error" id="err-name" style="display: none;"></span>
+                </div>
+
+                <!-- Celular / WhatsApp con 8 Dígitos Numéricos -->
+                <div class="form-group">
+                  <label for="client-phone"><i class="fa-solid fa-phone"></i> Celular / WhatsApp:</label>
+                  <input type="tel" id="client-phone" name="client-phone" placeholder="Ej: 78854844" maxlength="8" inputmode="numeric" autocomplete="tel">
+                  <span class="field-error" id="err-phone" style="display: none;"></span>
+                </div>
+
+                <!-- Correo Electrónico con Proveedores Reales -->
+                <div class="form-group">
+                  <label for="client-email"><i class="fa-solid fa-envelope"></i> Correo Electrónico:</label>
+                  <input type="email" id="client-email" name="client-email" placeholder="usuario@gmail.com" autocomplete="email">
+                  <span class="field-error" id="err-email" style="display: none;"></span>
+                </div>
+
+                <!-- Modalidad de Wallybol -->
+                <div class="form-group">
+                  <label for="wally-category"><i class="fa-solid fa-users-line"></i> Modalidad de Juego:</label>
+                  <select id="wally-category" name="wally-category">
+                    <option value="varones">Terna Varones (3 vs 3)</option>
+                    <option value="damas">Terna Damas (3 vs 3)</option>
+                    <option value="mixto">Terna Mixto (3 vs 3)</option>
+                    <option value="cuartas">Cuartas Recreativo (4 vs 4)</option>
+                  </select>
+                </div>
+
+                <!-- Forma de Pago -->
+                <div class="form-group">
+                  <label for="payment-method"><i class="fa-solid fa-credit-card"></i> Forma de Pago:</label>
+                  <select id="payment-method" name="payment-method">
+                    <option value="qr">Pago QR Simple (Banco BNB / BCP / Unión)</option>
+                    <option value="tigo-money">Tigo Money</option>
+                    <option value="efectivo">Efectivo en Caja del Complejo</option>
+                    <option value="transferencia">Transferencia Bancaria</option>
+                  </select>
+                </div>
+
+                <!-- Servicios Adicionales -->
+                <div class="form-group">
+                  <span class="filter-title"><i class="fa-solid fa-plus-circle"></i> Servicios Adicionales:</span>
+                  <div class="checkboxes-wrapper">
+                    <label class="checkbox-label" for="add-ball">
+                      <input type="checkbox" id="add-ball" name="add-ball" value="10"> Balón Oficial Tachikara/Mikasa (+10 Bs)
+                    </label>
+                    <label class="checkbox-label" for="add-vests">
+                      <input type="checkbox" id="add-vests" name="add-vests" value="15"> Juego de Ponchillos / Chalecos (+15 Bs)
+                    </label>
+                    <label class="checkbox-label" for="add-water">
+                      <input type="checkbox" id="add-water" name="add-water" value="20"> Pack Hidratación (6 aguas Vital) (+20 Bs)
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Notas Adicionales -->
+                <div class="form-group">
+                  <label for="client-notes"><i class="fa-solid fa-comment-dots"></i> Notas o altura de red requerida:</label>
+                  <textarea id="client-notes" name="client-notes" rows="2" placeholder="Ej: Red lista para categoría damas (2.24m)..."></textarea>
+                </div>
+
+                <!-- Resumen en Vivo -->
+                <div class="reservation-summary-panel">
+                  <div class="summary-line">
+                    <span>Cancha seleccionada:</span>
+                    <strong id="summary-court">Cancha 1: Illimani VIP (Madera)</strong>
+                  </div>
+                  <div class="summary-line">
+                    <span>Horas reservadas:</span>
+                    <strong id="summary-hours">1 Hora(s)</strong>
+                  </div>
+                  <div class="summary-line">
+                    <span>Horario elegido:</span>
+                    <strong id="summary-time">No asignado</strong>
+                  </div>
+                  <div class="summary-line">
+                    <span>Garantía Requerida (Reembolsable):</span>
+                    <strong id="summary-guarantee">50 BOB</strong>
+                  </div>
+                  <div class="summary-line total-highlight">
+                    <span>Total a Pagar (Cancha + Adicionales):</span>
+                    <strong id="summary-total" class="total-amount">0 BOB</strong>
+                  </div>
+                </div>
+
+                <!-- Alertas de Envío -->
+                <div id="booking-alert-error" class="alert-box error" style="display: none;"></div>
+                <div id="booking-alert-success" class="alert-box success" style="display: none;"></div>
+
+                <!-- Botón de Envío: Inicia deshabilitado hasta validar -->
+                <button type="submit" id="btn-submit-booking" class="btn btn-submit btn-disabled" disabled>
+                  <i class="fa-solid fa-lock"></i> Completa los campos para reservar
+                </button>
+
+              </form>
+            </div>
+
+          </div><!-- Fin .booking-grid-wrapper -->
+
+        </section>
+
+        <!-- ==========================================
+             4. SECCIÓN CLIENTE: MIS RESERVAS Y RETOS
+             ========================================== -->
+        <section id="tab-mis-reservas" class="panel-tab" data-roles="cliente" aria-labelledby="heading-mis-reservas" style="display: none;">
+          
+          <div class="section-header">
+            <h2 id="heading-mis-reservas"><i class="fa-solid fa-receipt"></i> Mis Reservas en Wally Park</h2>
+            <p>Historial personal de tus reservas, estado de confirmación y cola de retos o espera.</p>
+          </div>
+
+          <!-- Listado de Reservas del Cliente -->
+          <div id="cliente-reservas-lista" class="cliente-reservas-grid" role="region" aria-live="polite">
+            <!-- Inyectado dinámicamente con sanitización DOMPurify -->
+          </div>
+
+          <!-- Módulos de Cola de Retos y Bitácora Personal -->
+          <div class="booking-extras-grid">
+            
+            <div class="cola-karaoke">
+              <h3><i class="fa-solid fa-list-ol"></i> Cola de Retos y Espera</h3>
+              <p class="schedule-subtitle">Anota a tu equipo en lista de espera si la cancha deseada está ocupada:</p>
+              
+              <div class="fila-inline-form">
+                <label for="inputCancion" class="visually-hidden">Nombre del equipo o reto</label>
+                <input type="text" id="inputCancion" placeholder="Ej: Los Halcones • Reto 21:00 en Cancha 2">
+                <button type="button" id="btnPedir" class="btn btn-primary btn-tactil">
+                  <i class="fa-solid fa-plus"></i> Agregar
+                </button>
+              </div>
+              <span class="field-error" id="errInputCancion" style="display: none; margin-bottom: 8px;"></span>
+              <div id="listaCanciones" class="lista-canciones"></div>
+            </div>
+
+            <div class="booking-history-card">
+              <div class="section-header" style="padding: 0; margin-bottom: 10px;">
+                <h3 style="font-size: 1.05rem;"><i class="fa-solid fa-clock-rotate-left"></i> Bitácora de Interacciones</h3>
+                <div class="log-controls-bar" style="margin-top: 6px;">
+                  <button type="button" id="toggle-log-btn" class="accordion-toggle-btn">
+                    <i class="fa-solid fa-eye-slash"></i> <span>Ocultar / Mostrar</span>
+                  </button>
+                  <button type="button" id="clear-log-btn" class="accordion-toggle-btn btn-clear-log">
+                    <i class="fa-solid fa-trash-can"></i> Limpiar
+                  </button>
+                </div>
+              </div>
+              
+              <div id="log-collapsible-box">
+                <div class="log-stats-row" style="margin-bottom: 10px;">
+                  <div class="stat-badge"><span>Eventos:</span> <strong id="stat-total-events">0</strong></div>
+                  <div class="stat-badge"><span>Filtros:</span> <strong id="stat-filter-events">0</strong></div>
+                  <div class="stat-badge"><span>Reservas:</span> <strong id="stat-order-events">0</strong></div>
+                </div>
+                <div id="activity-log-list" class="activity-log-list" role="log" aria-label="Registro de actividad"></div>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             5. SECCIÓN TRABAJADOR: AGENDA OPERATIVA DEL DÍA
+             ========================================== -->
+        <section id="tab-trabajador-agenda" class="panel-tab" data-roles="trabajador" aria-labelledby="heading-trabajador-agenda" style="display: none;">
+          
+          <div class="section-header">
+            <h2 id="heading-trabajador-agenda"><i class="fa-solid fa-clipboard-list"></i> Agenda Operativa del Día — Wally Park</h2>
+            <p>Control de turnos en tiempo real: confirmación de check-in, entrega de balones/adicionales y liberación de canchas.</p>
+          </div>
+
+          <!-- Barra de Control de Fecha y Filtros de Estado -->
+          <div class="worker-toolbar-card">
+            <div class="worker-date-control">
+              <label for="trabajador-fecha-agenda"><i class="fa-solid fa-calendar-day"></i> Fecha de Operación:</label>
+              <input type="date" id="trabajador-fecha-agenda" class="input-control">
+              <button type="button" id="btn-trabajador-hoy" class="btn btn-secondary btn-sm">
+                <i class="fa-solid fa-clock"></i> Hoy
+              </button>
+            </div>
+
+            <div class="worker-status-filters" role="group" aria-label="Filtro de reservas por estado">
+              <button type="button" class="btn-filter-worker active" data-filter="todas">
+                Todas (<span id="count-op-todas">0</span>)
+              </button>
+              <button type="button" class="btn-filter-worker" data-filter="pendiente">
+                <i class="fa-solid fa-hourglass-half"></i> Pendientes (<span id="count-op-pendiente">0</span>)
+              </button>
+              <button type="button" class="btn-filter-worker" data-filter="en_cancha">
+                <i class="fa-solid fa-volleyball"></i> En Cancha (<span id="count-op-en-cancha">0</span>)
+              </button>
+              <button type="button" class="btn-filter-worker" data-filter="completada">
+                <i class="fa-solid fa-circle-check"></i> Completadas (<span id="count-op-completada">0</span>)
+              </button>
+            </div>
+          </div>
+
+          <!-- Contenedor Dinámico de la Lista de Turnos -->
+          <div id="trabajador-agenda-lista" class="worker-agenda-grid" role="region" aria-live="polite">
+            <!-- Inyectado dinámicamente con sanitización DOMPurify -->
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             6. SECCIÓN TRABAJADOR: ESTADO DE CANCHAS EN VIVO
+             ========================================== -->
+        <section id="tab-trabajador-canchas" class="panel-tab" data-roles="trabajador" aria-labelledby="heading-trabajador-canchas" style="display: none;">
+          
+          <div class="section-header">
+            <h2 id="heading-trabajador-canchas"><i class="fa-solid fa-table-cells-large"></i> Estado de Canchas en Vivo</h2>
+            <p>Monitoreo inmediato de la ocupación actual de las 6 canchas del complejo.</p>
+          </div>
+
+          <div id="trabajador-canchas-grid" class="courts-live-status-grid">
+            <!-- Inyectado dinámicamente -->
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             7. SECCIÓN ADMIN: DASHBOARD KPI GERENCIAL
+             ========================================== -->
+        <section id="tab-admin-kpi" class="panel-tab" data-roles="admin" aria-labelledby="heading-admin-kpi" style="display: none;">
+          
+          <div class="section-header">
+            <h2 id="heading-admin-kpi"><i class="fa-solid fa-chart-pie"></i> Dashboard de Rendimiento Gerencial</h2>
+            <p>Métricas financieras, ocupación y análisis de demanda de DeporZone Wally Park.</p>
+          </div>
+
+          <!-- 4 Tarjetas Principales de KPIs -->
+          <div class="kpi-grid">
+            <div class="kpi-card kpi-card--recaudacion">
+              <div class="kpi-card__icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+              <div class="kpi-card__content">
+                <span class="kpi-card__label">Total Recaudado</span>
+                <strong id="kpi-total-recaudado" class="kpi-card__val">0 Bs</strong>
+                <span class="kpi-card__sub">Ingresos por reservas efectivas</span>
+              </div>
+            </div>
+
+            <div class="kpi-card kpi-card--activas">
+              <div class="kpi-card__icon"><i class="fa-solid fa-calendar-check"></i></div>
+              <div class="kpi-card__content">
+                <span class="kpi-card__label">Reservas Activas</span>
+                <strong id="kpi-reservas-activas" class="kpi-card__val">0</strong>
+                <span class="kpi-card__sub">Pendientes y en juego</span>
+              </div>
+            </div>
+
+            <div class="kpi-card kpi-card--top">
+              <div class="kpi-card__icon"><i class="fa-solid fa-trophy"></i></div>
+              <div class="kpi-card__content">
+                <span class="kpi-card__label">Cancha Más Solicitada</span>
+                <strong id="kpi-cancha-top" class="kpi-card__val">--</strong>
+                <span class="kpi-card__sub" id="kpi-cancha-top-sub">Mayor preferencia</span>
+              </div>
+            </div>
+
+            <div class="kpi-card kpi-card--ocupacion">
+              <div class="kpi-card__icon"><i class="fa-solid fa-percent"></i></div>
+              <div class="kpi-card__content">
+                <span class="kpi-card__label">Tasa de Ocupación Hoy</span>
+                <strong id="kpi-tasa-ocupacion" class="kpi-card__val">0%</strong>
+                <span class="kpi-card__sub" id="kpi-ocupacion-detalle">0 de 60 turnos diarios</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desglose por Superficies y Adicionales -->
+          <div class="kpi-breakdown-grid">
+            <div class="kpi-breakdown-card">
+              <h3><i class="fa-solid fa-layer-group"></i> Distribución por Superficie</h3>
+              <div id="kpi-breakdown-superficie" class="breakdown-list">
+                <!-- Inyectado dinámicamente -->
+              </div>
+            </div>
+            <div class="kpi-breakdown-card">
+              <h3><i class="fa-solid fa-box-open"></i> Servicios Adicionales Contratados</h3>
+              <div id="kpi-breakdown-adicionales" class="breakdown-list">
+                <!-- Inyectado dinámicamente -->
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             8. SECCIÓN ADMIN: GESTIÓN DE CANCHAS Y TARIFAS
+             ========================================== -->
+        <section id="tab-admin-canchas" class="panel-tab" data-roles="admin" aria-labelledby="heading-admin-canchas" style="display: none;">
+          
+          <div class="section-header">
+            <h2 id="heading-admin-canchas"><i class="fa-solid fa-sliders"></i> Gestión de Canchas, Tarifas y Mantenimiento</h2>
+            <p>Configuración de precios por hora (Bs) y estados operativos sincronizados con MySQL (XAMPP).</p>
+          </div>
+
+          <div id="admin-canchas-container" class="admin-courts-grid">
+            <!-- Inyectado dinámicamente -->
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             9. SECCIÓN ADMIN: HISTORIAL GLOBAL DE RESERVAS
+             ========================================== -->
+        <section id="tab-admin-historial" class="panel-tab" data-roles="admin" aria-labelledby="heading-admin-historial" style="display: none;">
+          
+          <div class="section-header">
+            <h2 id="heading-admin-historial"><i class="fa-solid fa-table-list"></i> Historial Global de Todas las Reservas</h2>
+            <p>Registro completo de reservas de todos los clientes con filtros por cancha, estado y anulación directa.</p>
+          </div>
+
+          <div class="admin-table-filters-card">
+            <div class="filter-item-input">
+              <label for="admin-buscar-reserva"><i class="fa-solid fa-magnifying-glass"></i> Buscar:</label>
+              <input type="text" id="admin-buscar-reserva" class="input-control" placeholder="Buscar por titular, celular o ID...">
+            </div>
+
+            <div class="filter-item-select">
+              <label for="admin-filtro-cancha"><i class="fa-solid fa-volleyball"></i> Cancha:</label>
+              <select id="admin-filtro-cancha" class="input-control">
+                <option value="todas">Todas las canchas</option>
+                <option value="C1">Cancha 1: Illimani VIP</option>
+                <option value="C2">Cancha 2: Tunari Oficial</option>
+                <option value="C3">Cancha 3: Sajama Pro</option>
+                <option value="C4">Cancha 4: Madidi Sport</option>
+                <option value="C5">Cancha 5: Urkupiña Clásica</option>
+                <option value="C6">Cancha 6: Tercer Tiempo</option>
+              </select>
+            </div>
+
+            <div class="filter-item-select">
+              <label for="admin-filtro-estado"><i class="fa-solid fa-tag"></i> Estado:</label>
+              <select id="admin-filtro-estado" class="input-control">
+                <option value="todos">Todos los estados</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="en_cancha">En Cancha</option>
+                <option value="completada">Completada</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="admin-table-wrapper">
+            <table class="admin-table" aria-label="Historial global de reservas de Wally Park">
+              <thead>
+                <tr>
+                  <th scope="col"># ID</th>
+                  <th scope="col">Fecha & Hora</th>
+                  <th scope="col">Cancha</th>
+                  <th scope="col">Titular</th>
+                  <th scope="col">Modalidad</th>
+                  <th scope="col">Adicionales</th>
+                  <th scope="col">Total</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="admin-historial-tbody">
+                <!-- Filas inyectadas dinámicamente con sanitización -->
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+
+        <!-- ==========================================
+             10. SECCIÓN AUDITORÍA, REGLAMENTO E INFORMACIÓN (TODOS LOS ROLES)
+             ========================================== -->
+        <section id="tab-info" class="panel-tab" data-roles="cliente trabajador admin" aria-labelledby="heading-info">
+          
+          <div class="section-header">
+            <h2 id="heading-info"><i class="fa-solid fa-graduation-cap"></i> Panel de Auditoría y Simulaciones (UPDS)</h2>
+            <p>Herramientas interactivas para demostrar en clase la conformidad con WCAG, responsividad y a11y.</p>
+          </div>
+
+          <!-- PANEL DE SIMULACIONES DEMOSTRABLES EN CLASE -->
+          <div class="audit-panel-card">
+            <h3><i class="fa-solid fa-vial-circle-check"></i> Pruebas en Vivo de Accesibilidad y Arquitectura</h3>
+            <p class="audit-instructions">Ejecuta las pruebas en vivo para verificar contraste de color, simulación móvil y jerarquía semántica:</p>
+
+            <div class="audit-buttons-grid">
+              <button type="button" id="btnSimularContraste" class="btn btn-audit">
+                <i class="fa-solid fa-circle-half-stroke"></i> 1. Alternar Alto Contraste WCAG
+              </button>
+              <button type="button" id="btnSimularVista" class="btn btn-audit">
+                <i class="fa-solid fa-mobile-screen"></i> 2. Simular Vista 1 Columna Móvil
+              </button>
+              <button type="button" id="btnSmokeTest" class="btn btn-audit">
+                <i class="fa-solid fa-flask"></i> 3. Ejecutar Smoke Test DOM
+              </button>
+              <button type="button" id="btnAuditarA11Y" class="btn btn-audit">
+                <i class="fa-solid fa-universal-access"></i> 4. Auditar Etiquetas Semánticas a11y
+              </button>
+            </div>
+
+            <div class="audit-results-box">
+              <div class="audit-result-item">
+                <span class="audit-label"><i class="fa-solid fa-terminal"></i> Resultado de Smoke Test:</span>
+                <p id="salidaAudit" class="audit-output" aria-live="polite">
+                  Haz clic en "3. Ejecutar Smoke Test DOM" para auditar en vivo botones, imágenes sin alt y enlaces.
+                </p>
+              </div>
+              <div class="audit-result-item">
+                <span class="audit-label"><i class="fa-solid fa-clipboard-check"></i> Reporte de Accesibilidad a11y:</span>
+                <p id="reporteA11Y" class="audit-output" role="status" aria-live="polite">
+                  Haz clic en "4. Auditar Etiquetas Semánticas a11y" para evaluar la jerarquía HTML5 y Core Web Vitals.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- NORMAS INTERNAS DE WALLYBOL -->
+          <div class="sub-section">
+            <h3 class="sub-section-title"><i class="fa-solid fa-book-open"></i> Normas Internas de Wally Park</h3>
+            <div class="rules-grid">
+              <article class="rule-card">
+                <i class="fa-solid fa-shoe-prints"></i>
+                <h4>Uso de Zapatillas Limpias</h4>
+                <p>Ingreso obligatorio con calzado deportivo de suela limpia no abrasiva para proteger el tabloncillo de madera y pisos de poliuretano.</p>
+              </article>
+              <article class="rule-card">
+                <i class="fa-solid fa-hand-fist"></i>
+                <h4>Paredes y Altura de Red</h4>
+                <p>Uso de paredes reglamentarias permitido en campo propio. Solicita en recepción ajuste de altura para damas (2.24m) o varones (2.43m).</p>
+              </article>
+              <article class="rule-card">
+                <i class="fa-solid fa-stopwatch"></i>
+                <h4>Puntualidad en Turnos</h4>
+                <p>Los turnos inician en punto. Respeta los 5 minutos finales para despejar la cancha y dar paso al siguiente equipo en la grilla.</p>
+              </article>
+            </div>
+          </div>
+
+          <!-- REDES SOCIALES OFICIALES -->
+          <div class="sub-section">
+            <h3 class="sub-section-title"><i class="fa-solid fa-share-nodes"></i> Redes Sociales Oficiales</h3>
+            <div class="social-grid">
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" class="social-card" data-network="Facebook Oficial">
+                <i class="fa-brands fa-facebook-f"></i>
+                <h4>Facebook</h4>
+                <span>/DeporZoneWallyPark</span>
+                <small class="social-action">Torneos y Fixture</small>
+              </a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="social-card" data-network="Instagram Oficial">
+                <i class="fa-brands fa-instagram"></i>
+                <h4>Instagram</h4>
+                <span>@deporzone.wally</span>
+                <small class="social-action">Fotos y Campeones</small>
+              </a>
+              <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" class="social-card" data-network="TikTok Oficial">
+                <i class="fa-brands fa-tiktok"></i>
+                <h4>TikTok</h4>
+                <span>@deporzone.bo</span>
+                <small class="social-action">Mejores Jugadas</small>
+              </a>
+              <a href="https://wa.me/59178854844" target="_blank" rel="noopener noreferrer" class="social-card" data-network="WhatsApp Directo">
+                <i class="fa-brands fa-whatsapp"></i>
+                <h4>WhatsApp Directo</h4>
+                <span>(+591) 78854844</span>
+                <small class="social-action">Atención Inmediata</small>
+              </a>
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+
+      <!-- PIE DE PÁGINA INSTITUCIONAL -->
+      <footer class="main-footer">
+        <div class="footer-container">
+          <div class="footer-col">
+            <h4>DeporZone Wally Park</h4>
+            <p>El megacomplejo de wallybol más moderno de Bolivia. Canchas con parquet flotante, sintético cushion y cemento alisado bajo un mismo techo.</p>
+            <p><i class="fa-solid fa-location-dot"></i> Av. América y Av. Melchor Pérez, Cochabamba, Bolivia</p>
+          </div>
+          <div class="footer-col">
+            <h4>Atención y Reservas</h4>
+            <p><i class="fa-solid fa-calendar"></i> Lunes a Domingo (incluye feriados)</p>
+            <p><i class="fa-solid fa-clock"></i> 14:00 – 00:00 (Medianoche)</p>
+            <p><i class="fa-brands fa-whatsapp"></i> WhatsApp: (+591) 78854844</p>
+            <p><i class="fa-solid fa-envelope"></i> reservas@deporzonewally.bo</p>
+          </div>
+          <div class="footer-col">
+            <h4>Arquitectura Full Stack</h4>
+            <p><i class="fa-solid fa-database"></i> MySQL (XAMPP) + API REST PHP PDO + JSON</p>
+            <p><i class="fa-solid fa-globe"></i> Fallback Transparente a LocalStorage en GitHub Pages</p>
+            <p><i class="fa-solid fa-shield-halved"></i> Autenticación de Roles (Admin, Trabajador, Cliente) + DOMPurify</p>
+          </div>
         </div>
-        <div class="stat-badge">
-          <span>Filtros de Canchas:</span>
-          <strong id="stat-filter-events">0</strong>
+        <div class="footer-bottom">
+          <p>&copy; 2026 DeporZone Wally Park — Proyecto Integrador de Diseño Web II (UPDS). Todos los derechos reservados.</p>
         </div>
-        <div class="stat-badge">
-          <span>Reservas Confirmadas:</span>
-          <strong id="stat-order-events">0</strong>
-        </div>
-      </div>
+      </footer>
 
-      <div id="activity-log-list" class="activity-log-list">
-        <!-- Eventos registrados dinámicamente con jQuery y Timestamp -->
-      </div>
     </div>
-  </section>
+
+  </div>
 
   <!-- ==========================================
-       4. SECCIÓN REGLAMENTO RÁPIDO DE WALLYBOL
+       MODAL UI: LOGIN / AUTENTICACIÓN POR ROLES
        ========================================== -->
-  <section id="rules-section" class="rules-section container">
-    <div class="section-header">
-      <h3><i class="fa-solid fa-book-open"></i> Normas Internas de Wally Park</h3>
-      <p>Cuidemos juntos nuestras instalaciones deportivas para una mejor experiencia de juego.</p>
-    </div>
-    <div class="rules-grid">
-      <div class="rule-card">
-        <i class="fa-solid fa-shoe-prints"></i>
-        <h5>Uso de Zapatillas Limpias</h5>
-        <p>Ingreso obligatorio con zapatillas deportivas de suela limpia no abrasiva para proteger el tabloncillo y
-          pisos de poliuretano.</p>
-      </div>
-      <div class="rule-card">
-        <i class="fa-solid fa-hand-fist"></i>
-        <h5>Paredes y Altura de Red</h5>
-        <p>Uso de paredes reglamentarias permitido en el campo propio. Solicita en recepción el ajuste de altura para
-          damas (2.24m) o varones (2.43m).</p>
-      </div>
-      <div class="rule-card">
-        <i class="fa-solid fa-stopwatch"></i>
-        <h5>Puntualidad en Turno</h5>
-        <p>Los turnos inician en punto. Respeta los 5 minutos finales para despejar la cancha y dar paso al siguiente
-          equipo.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ==========================================
-       4.5 SECCIÓN INTERACTIVA DE REDES SOCIALES E INTEGRACIÓN
-       ========================================== -->
-  <section id="social-section" class="social-section container">
-    <div class="section-header">
-      <h3><i class="fa-solid fa-share-nodes"></i> Redes Sociales Oficiales — DeporZone</h3>
-      <p>Síguenos para enterarte de torneos relámpago, transmisiones de finales y promociones de horarios.</p>
-      <button type="button" id="toggle-social-btn" class="accordion-toggle-btn btn-hidratable" data-hidratado="false" style="margin-top: 10px;">
-        <i class="fa-solid fa-bullhorn"></i> <span>Mostrar / Ocultar Canales Oficiales (fadeToggle)</span>
-      </button>
-    </div>
-
-    <div id="social-collapsible-box" class="social-grid">
-      <a href="https://facebook.com" target="_blank" rel="noopener" class="social-card" data-network="Facebook Oficial (DeporZone Wally Park)">
-        <i class="fa-brands fa-facebook-f"></i>
-        <h5>Facebook</h5>
-        <span>/DeporZoneWallyPark</span>
-        <small class="social-action">Torneos y Fixture</small>
-      </a>
-      <a href="https://instagram.com" target="_blank" rel="noopener" class="social-card" data-network="Instagram (@deporzone.wally)">
-        <i class="fa-brands fa-instagram"></i>
-        <h5>Instagram</h5>
-        <span>@deporzone.wally</span>
-        <small class="social-action">Fotos y Campeones</small>
-      </a>
-      <a href="https://tiktok.com" target="_blank" rel="noopener" class="social-card" data-network="TikTok Oficial (@deporzone.bo)">
-        <i class="fa-brands fa-tiktok"></i>
-        <h5>TikTok</h5>
-        <span>@deporzone.bo</span>
-        <small class="social-action">Mejores Jugadas</small>
-      </a>
-      <a href="https://wa.me/59178854844" target="_blank" rel="noopener" class="social-card" data-network="WhatsApp Reservas (+591 78854844)">
-        <i class="fa-brands fa-whatsapp"></i>
-        <h5>WhatsApp Directo</h5>
-        <span>(+591) 78854844</span>
-        <small class="social-action">Atención Inmediata</small>
-      </a>
-    </div>
-  </section>
-
-  <!-- ==========================================
-       5. PIE DE PÁGINA Y CONTACTO DEL COMPLEJO
-       ========================================== -->
-  <footer id="contact-section" class="main-footer">
-    <div class="footer-container container">
-      <div class="footer-col">
-        <h5>DeporZone Wally Park</h5>
-        <p>El megacomplejo de wallybol más grande de Bolivia: 4 canchas cerradas y dos abiertas con madera flotante,
-          sintético y
-          cemento alisado en un solo recinto deportivo.</p>
-        <p><i class="fa-solid fa-location-dot"></i> Av. América y Av. Melchor Pérez, Cochabamba, Bolivia</p>
-        <p><i class="fa-solid fa-id-card"></i> NIT: 5019283014 • Licencia Municipal Vigente</p>
-      </div>
-      <div class="footer-col">
-        <h5>Horarios del Complejo</h5>
-        <p><i class="fa-solid fa-calendar"></i> Lunes a Domingo (Incluye feriados)</p>
-        <p><i class="fa-solid fa-clock"></i> 14:00 - 00:00 (Medianoche)</p>
-        <p><i class="fa-brands fa-whatsapp"></i> Reservas y Atención: (+591) 78854844</p>
-        <p><i class="fa-solid fa-envelope"></i> reservas@deporzonewally.bo</p>
-      </div>
-      <div class="footer-col">
-        <h5>Navegación Rápida</h5>
-        <ul>
-          <li><a href="#hero-section">Inicio</a></li>
-          <li><a href="#filter-section">Nuestras 6 Canchas</a></li>
-          <li><a href="#booking-section">Reservar Turno</a></li>
-          <li><a href="#rules-section">Normas de Cancha</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2026 DeporZone Wally Park - Todos los derechos reservados. Proyecto desarrollado para Diseño Web II.</p>
-    </div>
-  </footer>
-
-  <!-- ==========================================
-       6. COMPONENTE MODAL UI (VENTANA EMERGENTE DE CONFIRMACIÓN)
-       Guía de Maquetación UI Viernes + Reto Temporizador Asíncrono
-       ========================================== -->
-  <div id="modal-overlay" class="modal-overlay" style="display: none;">
+  <div id="modal-login" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-login-title">
     <div class="modal-card">
       <div class="modal-header">
-        <h4><i class="fa-solid fa-file-shield"></i> Confirmar Reserva — DeporZone</h4>
-        <button id="modal-close-btn" class="modal-close-btn btn-hidratable" data-hidratado="false" aria-label="Cerrar modal">&times;</button>
+        <h3 id="modal-login-title"><i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión — DeporZone</h3>
+        <button type="button" id="modal-login-close-btn" class="modal-close-btn" aria-label="Cerrar modal">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-instructions">Verifique el detalle de su transacción antes de procesar el registro:</p>
+        <p class="modal-instructions">Ingresa tus credenciales o utiliza los botones de demostración para evaluar los roles en clase:</p>
+        
+        <!-- Botones rápidos de autocompletado demo -->
+        <div class="demo-auth-group">
+          <span class="demo-auth-title"><i class="fa-solid fa-bolt"></i> Autocompletar Credenciales Demo:</span>
+          <div class="demo-auth-buttons">
+            <button type="button" class="btn-demo-auth" data-email="admin@deporzone.bo" data-pass="Admin1234">
+              👑 Admin
+            </button>
+            <button type="button" class="btn-demo-auth" data-email="recepcion@deporzone.bo" data-pass="Trabajador1234">
+              👔 Trabajador
+            </button>
+            <button type="button" class="btn-demo-auth" data-email="gabriel.ramos@gmail.com" data-pass="Cliente1234">
+              🏐 Cliente
+            </button>
+          </div>
+        </div>
+
+        <form id="form-login" novalidate>
+          <div class="form-group">
+            <label for="login-email"><i class="fa-solid fa-envelope"></i> Correo Electrónico:</label>
+            <input type="email" id="login-email" name="login-email" placeholder="ejemplo@deporzone.bo" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="login-password"><i class="fa-solid fa-lock"></i> Contraseña:</label>
+            <input type="password" id="login-password" name="login-password" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          
+          <div id="login-alert-error" class="alert-box error" style="display: none;"></div>
+
+          <button type="submit" id="btn-submit-login" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-sign-in-alt"></i> Ingresar al Sistema
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL UI: ADMINISTRAR CANCHA (ROL ADMIN)
+       ========================================== -->
+  <div id="modal-admin-cancha" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-cancha-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-cancha-title"><i class="fa-solid fa-sliders"></i> Gestionar Cancha (Rol Admin)</h3>
+        <button type="button" id="modal-cancha-close-btn" class="modal-close-btn" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-admin-cancha" novalidate>
+          <input type="hidden" id="admin-cancha-id">
+          <div class="form-group">
+            <label for="admin-cancha-nombre">Nombre de Cancha:</label>
+            <input type="text" id="admin-cancha-nombre" readonly style="opacity: 0.85;">
+          </div>
+          <div class="form-group">
+            <label for="admin-cancha-precio">Tarifa por Hora (Bs):</label>
+            <input type="number" id="admin-cancha-precio" min="30" max="250" step="5" required>
+          </div>
+          <div class="form-group">
+            <label for="admin-cancha-estado">Estado Operativo:</label>
+            <select id="admin-cancha-estado">
+              <option value="disponible">Disponible para reservas</option>
+              <option value="mantenimiento">En mantenimiento (Bloqueada)</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios en MySQL
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL UI: CONFIRMACIÓN CON TEMPORIZADOR ASÍNCRONO
+       ========================================== -->
+  <div id="modal-overlay" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title"><i class="fa-solid fa-file-shield"></i> Confirmar Reserva — DeporZone</h3>
+        <button type="button" id="modal-close-btn" class="modal-close-btn" aria-label="Cerrar ventana modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instructions">Verifique el detalle de su transacción antes de confirmar el pago:</p>
         
         <div class="modal-details-box">
           <div class="modal-detail-row">
-            <span><i class="fa-solid fa-volleyball"></i> Servicio / Cancha:</span>
+            <span><i class="fa-solid fa-volleyball"></i> Cancha:</span>
             <strong id="modal-court-name">Cancha 1: Illimani VIP</strong>
           </div>
           <div class="modal-detail-row">
@@ -734,8 +1230,8 @@
             <strong id="modal-client-name">Gabriel Ramos</strong>
           </div>
           <div class="modal-detail-row">
-            <span><i class="fa-solid fa-calendar-day"></i> Fecha & Horario:</span>
-            <strong id="modal-schedule">2026-11-06 (19:00 a 20:00)</strong>
+            <span><i class="fa-solid fa-calendar-day"></i> Fecha &amp; Horario:</span>
+            <strong id="modal-schedule">2026-11-21 (19:00 - 20:00)</strong>
           </div>
           <div class="modal-detail-row">
             <span><i class="fa-solid fa-shield-halved"></i> Garantía Requerida:</span>
@@ -747,36 +1243,33 @@
           </div>
         </div>
 
-        <!-- Temporizador Asíncrono de Reserva Expirable (Puntos Extra +0.5) -->
+        <!-- Temporizador Asíncrono de Reserva Expirable (30 segundos) -->
         <div class="modal-timer-banner">
           <i class="fa-solid fa-stopwatch"></i>
           <span>Tiempo Restante para Confirmar: <strong id="modal-countdown">00:30s</strong></span>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" id="modal-cancel-btn" class="btn btn-modal-cancel btn-hidratable" data-hidratado="false">Cancelar</button>
-        <button type="button" id="modal-confirm-btn" class="btn btn-modal-confirm btn-hidratable" data-hidratado="false">Procesar Pago</button>
+        <button type="button" id="modal-cancel-btn" class="btn btn-modal-cancel">Cancelar</button>
+        <button type="button" id="modal-confirm-btn" class="btn btn-modal-confirm">Procesar Pago</button>
       </div>
     </div>
   </div>
 
-  <!-- ==========================================
-       7. FEEDBACK DINÁMICO FLOTANTE (TOAST ALERT)
-       Reto UI Nivel PRO (+0.5 Puntos Extra)
-       ========================================== -->
+  <!-- TOAST FEEDBACK FLOTANTE -->
   <div id="toast-container" class="toast-container">
-    <div id="toast-alert" class="toast-card" style="display: none;">
+    <div id="toast-alert" class="toast-card" style="display: none;" role="status">
       <div class="toast-icon"><i class="fa-solid fa-circle-check"></i></div>
       <div class="toast-content">
-        <h5 id="toast-title">¡Reserva Procesada con Éxito!</h5>
+        <h4 id="toast-title">¡Reserva Procesada con Éxito!</h4>
         <p id="toast-message">Tu turno ha quedado bloqueado en DeporZone Wally Park.</p>
       </div>
     </div>
   </div>
 
-  <!-- Scripts: jQuery y script de interacciones -->
+  <!-- Scripts: jQuery y Lógica Unificada DeporZone (v11) -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="script.js?v=6"></script>
+  <script src="script.js?v=11"></script>
 </body>
 
 </html>

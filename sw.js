@@ -1,29 +1,30 @@
 /* ============================================================================
    [FUNCIONALIDAD PWA OFFLINE-FIRST]: Service Worker — DeporZone Wally Park
-   - Pre-cachea recursos locales en el evento 'install'
+   - Pre-cachea recursos esenciales en el evento 'install'
    - Limpia versiones antiguas de caché en 'activate'
+   - Excluye llamadas a /api/ para consultas siempre en vivo a MySQL (Network-Only)
    - Responde peticiones HTTP desde Cache Storage con fallback a red en 'fetch'
    ============================================================================ */
 
-const CACHE_NAME = 'deporzone-pwa-cache-v6';
+const CACHE_NAME = 'deporzone-v11';
 
-// Recursos esenciales locales para funcionar sin conexión (incluye index.html y mobile.html)
+// Recursos esenciales locales para funcionar 100% sin conexión (Arquitectura Un Solo Código)
 const LOCAL_ASSETS = [
   './',
   './index.html',
-  './mobile.html',
   './styles.css',
   './script.js',
   './manifest.json'
 ];
 
-// Librerías CDN opcionales (no bloquean la instalación si no hay acceso externo)
+// Librerías CDN verificadas y sanitizadas
 const CDN_ASSETS = [
   'https://code.jquery.com/jquery-3.7.1.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css'
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
+  'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js'
 ];
 
-// 1. Evento Instalación (install): Cachea los activos esenciales de DeporZone
+// 1. Evento Instalación (install): Cachea los activos esenciales
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -52,8 +53,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 3. Evento Fetch: Estrategia Cache-First con actualización de red y respaldo offline
+// 3. Evento Fetch: Excluye ./api/ (Network-Only) y aplica Cache-First al resto
 self.addEventListener('fetch', (event) => {
+  // Exclusión estricta de rutas API: siempre van directo a MySQL por red
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
+
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
@@ -74,7 +80,7 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           if (event.request.mode === 'navigate') {
-            return caches.match('./mobile.html');
+            return caches.match('./index.html');
           }
         });
     })
